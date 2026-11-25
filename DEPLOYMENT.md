@@ -5,7 +5,7 @@ Live: **https://waba.outreach-pro.in**
 | Piece | Where |
 |---|---|
 | App | Vercel project `wacrm`, team `Bitan's projects` (Hobby) |
-| Database / Auth / Storage | Supabase project `wacrm`, region `ap-south-1` (Mumbai), free tier |
+| Database / Auth / Storage | Supabase project `wacrm` (ref `wtwosbvkpwbhtwarqcxs`), org `godseyeautomation-sketch's Org`, region `ap-south-1` (Mumbai), free tier |
 | DNS | Cloudflare zone `outreach-pro.in` |
 | Source | this repo (`bitan-del/wacrm`), forked from `ArnasDon/wacrm` |
 
@@ -38,7 +38,9 @@ Vercel → Settings → Authentication → GitHub → Connect, then run
 
 ## Environment variables
 
-Set on the Vercel project for both Production and Preview:
+Set on the Vercel project (the three Supabase vars were re-pointed at
+`wtwosbvkpwbhtwarqcxs` for **Production** only — the Preview copies still hold
+the dead project's values):
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — must be type **config**, not secret: it is a
@@ -57,22 +59,35 @@ Business API.
 
 ## Database
 
-39 migrations from `supabase/migrations/` are applied (`001` → `039`):
-36 tables, RLS enabled on all 36, 102 policies.
+> **Nov 2026:** the original Supabase project (`dfbajwhafywmpkquancs`) disappeared
+> (its hostname stopped resolving, so every request hit a 504
+> `MIDDLEWARE_INVOCATION_TIMEOUT`). Its data could not be recovered. A fresh
+> project `wtwosbvkpwbhtwarqcxs` was created and all migrations re-applied;
+> users had to sign up again and WhatsApp has to be reconnected in Settings.
+
+All migrations from `supabase/migrations/` are applied (`001` → `060`;
+`050` and `056` do not exist upstream). `supabase/ci/verify-schema.sql`
+passes: 37 tables, 101 RLS policies.
+
+Auth → URL Configuration: Site URL `https://waba.outreach-pro.in`, redirect
+allow-list `https://waba.outreach-pro.in/**`.
 
 The direct host `db.<ref>.supabase.co` is **IPv6-only** on the free tier. From an
 IPv4-only network use the session pooler instead:
 
 ```
-host=aws-0-ap-south-1.pooler.supabase.com port=5432 user=postgres.dfbajwhafywmpkquancs
+host=aws-0-ap-south-1.pooler.supabase.com port=5432 user=postgres.wtwosbvkpwbhtwarqcxs
 ```
 
-Applying new migrations:
+Applying new migrations (or paste them into the dashboard SQL editor):
 
 ```bash
-psql "host=db.dfbajwhafywmpkquancs.supabase.co port=5432 user=postgres \
+psql "host=db.wtwosbvkpwbhtwarqcxs.supabase.co port=5432 user=postgres \
       dbname=postgres sslmode=require" -v ON_ERROR_STOP=1 -1 -f supabase/migrations/0NN_x.sql
 ```
+
+Free-tier projects pause after about a week without traffic — if the site
+starts timing out again, check the Supabase dashboard for a paused project first.
 
 ## Theme
 
