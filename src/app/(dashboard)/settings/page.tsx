@@ -14,6 +14,7 @@ import { AppearancePanel } from '@/components/settings/appearance-panel';
 import { WhatsAppConfig } from '@/components/settings/whatsapp-config';
 import { CallingSettings } from '@/components/settings/calling-settings';
 import { AiCallSettings } from '@/components/settings/ai-call-settings';
+import { SmsConfig } from '@/components/settings/sms-config';
 import { TemplateManager } from '@/components/settings/template-manager';
 import { QuickRepliesManager } from '@/components/settings/quick-replies-manager';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
@@ -80,6 +81,7 @@ function SettingsPageInner() {
     whatsapp: <WhatsAppConfig />,
     calling: <CallingSettings />,
     'ai-calls': <AiCallSettings />,
+    sms: <SmsConfig />,
     templates: <TemplateManager />,
     'quick-replies': <QuickRepliesManager />,
     fields: <FieldsAndTagsPanel />,

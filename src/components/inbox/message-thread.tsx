@@ -3,6 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useSmsStatus } from "@/hooks/use-sms-status";
 import { usePresence } from "@/hooks/use-presence";
 import { PresenceDot } from "@/components/presence/presence-dot";
 import { presenceLabel } from "@/lib/presence";
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type {
   Conversation,
   Message,
+  MessageChannel,
   MessageReaction,
   Contact,
   ConversationStatus,
@@ -194,6 +196,7 @@ export function MessageThread({
   const tQuote = useTranslations("Inbox.replyQuote");
 
   const { user } = useAuth();
+  const smsStatus = useSmsStatus();
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -296,10 +299,11 @@ export function MessageThread({
   const sessionInfo = useMemo(() => {
     if (!messages.length) return { expired: false, remaining: "" };
 
-    // Find last customer message
+    // Find last customer message ON WHATSAPP — an inbound SMS does not
+    // open Meta's 24-hour customer-service window.
     const lastCustomerMsg = [...messages]
       .reverse()
-      .find((m) => m.sender_type === "customer");
+      .find((m) => m.sender_type === "customer" && m.channel !== "sms");
 
     if (!lastCustomerMsg) return { expired: true, remaining: tTimer("noCustomerMessages") };
 
@@ -318,6 +322,23 @@ export function MessageThread({
 
     return { expired, remaining };
   }, [messages, tTimer]);
+
+  // Reply channel. Defaults to whichever channel the customer last
+  // wrote on; an explicit pick sticks for this conversation only.
+  const [channelPick, setChannelPick] = useState<{
+    conversationId: string;
+    channel: MessageChannel;
+  } | null>(null);
+  const lastCustomerChannel = useMemo<MessageChannel>(() => {
+    const last = [...messages].reverse().find((m) => m.sender_type === "customer");
+    return last?.channel === "sms" ? "sms" : "whatsapp";
+  }, [messages]);
+  const replyChannel: MessageChannel = !smsStatus.enabled
+    ? "whatsapp"
+    : channelPick && channelPick.conversationId === conversation?.id
+      ? channelPick.channel
+      : lastCustomerChannel;
+  const smsOptedOut = Boolean(contact?.sms_opted_out_at);
 
   // Store latest callback in a ref so fetchMessages doesn't need to
   // depend on `onMessagesLoaded` — otherwise parent re-renders cause
@@ -582,6 +603,7 @@ export function MessageThread({
       const tempId = newTempMessageId();
 
       // Optimistic update — shows the message immediately with "sending" status
+      const viaSms = replyChannel === "sms";
       const optimisticMsg: Message = {
         id: tempId,
         conversation_id: conversation.id,
@@ -590,22 +612,33 @@ export function MessageThread({
         content_text: text,
         status: "sending",
         created_at: new Date().toISOString(),
-        reply_to_message_id: replyToId,
+        // SMS has no reply-quote context.
+        reply_to_message_id: viaSms ? undefined : replyToId,
+        channel: replyChannel,
       };
       onNewMessage(optimisticMsg);
       setReplyTo(null);
 
       try {
-        const res = await fetch("/api/whatsapp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            message_type: "text",
-            content_text: text,
-            reply_to_message_id: replyToId,
-          }),
-        });
+        const res = viaSms
+          ? await fetch("/api/sms/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                conversation_id: conversation.id,
+                content_text: text,
+              }),
+            })
+          : await fetch("/api/whatsapp/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                conversation_id: conversation.id,
+                message_type: "text",
+                content_text: text,
+                reply_to_message_id: replyToId,
+              }),
+            });
 
         const payload = await res.json().catch(() => ({}));
 
@@ -629,7 +662,7 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: "failed" });
       }
     },
-    [conversation, onNewMessage, onUpdateMessage, t]
+    [conversation, onNewMessage, onUpdateMessage, t, replyChannel]
   );
 
   const handleSendMedia = useCallback(
@@ -645,6 +678,8 @@ export function MessageThread({
           : payload.caption;
 
       const tempId = newTempMessageId();
+      // A photo sent while the SMS channel is selected goes out as MMS.
+      const viaSms = replyChannel === "sms" && payload.kind === "image";
       const optimisticMsg: Message = {
         id: tempId,
         conversation_id: conversation.id,
@@ -654,24 +689,35 @@ export function MessageThread({
         media_url: payload.mediaUrl,
         status: "sending",
         created_at: new Date().toISOString(),
-        reply_to_message_id: payload.replyToId,
+        reply_to_message_id: viaSms ? undefined : payload.replyToId,
+        channel: viaSms ? "sms" : "whatsapp",
       };
       onNewMessage(optimisticMsg);
       setReplyTo(null);
 
       try {
-        const res = await fetch("/api/whatsapp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            message_type: payload.kind,
-            media_url: payload.mediaUrl,
-            content_text: contentText,
-            filename: payload.filename,
-            reply_to_message_id: payload.replyToId,
-          }),
-        });
+        const res = viaSms
+          ? await fetch("/api/sms/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                conversation_id: conversation.id,
+                content_text: contentText ?? "",
+                media_url: payload.mediaUrl,
+              }),
+            })
+          : await fetch("/api/whatsapp/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                conversation_id: conversation.id,
+                message_type: payload.kind,
+                media_url: payload.mediaUrl,
+                content_text: contentText,
+                filename: payload.filename,
+                reply_to_message_id: payload.replyToId,
+              }),
+            });
 
         const data = await res.json().catch(() => ({}));
 
@@ -695,7 +741,7 @@ export function MessageThread({
         void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
       }
     },
-    [conversation, onNewMessage, onUpdateMessage, t],
+    [conversation, onNewMessage, onUpdateMessage, t, replyChannel],
   );
 
   const handleSendInteractive = useCallback(
@@ -1306,6 +1352,12 @@ export function MessageThread({
       <MessageComposer
         conversationId={conversation.id}
         sessionExpired={sessionInfo.expired}
+        channel={replyChannel}
+        smsAvailable={smsStatus.enabled}
+        smsOptedOut={smsOptedOut}
+        onChannelChange={(next) =>
+          setChannelPick({ conversationId: conversation.id, channel: next })
+        }
         onSend={handleSend}
         onSendMedia={handleSendMedia}
         onSendInteractive={handleSendInteractive}

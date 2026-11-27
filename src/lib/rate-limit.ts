@@ -199,6 +199,10 @@ export const RATE_LIMITS = {
   whatsappHealth: { limit: 30, windowMs: 60_000 },
   whatsappMedia: { limit: 240, windowMs: 60_000 },
   automationTrigger: { limit: 30, windowMs: 60_000 },
+  /** SMS broadcast creation, per user. Unlike the WhatsApp wizard (one
+   *  call per batch of 10), an SMS campaign is ONE call that plans every
+   *  recipient server-side, so a tight bucket costs nothing legitimate. */
+  smsBroadcast: { limit: 10, windowMs: 60_000 },
 } as const;
 
 /** Test-only helper. Clears the in-memory state so unit tests don't

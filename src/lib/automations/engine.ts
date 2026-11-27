@@ -22,6 +22,7 @@ import { supabaseAdmin } from './admin-client'
 import { addContactTagIfAbsent } from '@/lib/contacts/tag-write'
 import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from '@/lib/contacts/tag-chain'
 import { engineSendText, engineSendTemplate, engineSendInteractive } from './meta-send'
+import { engineSendSmsText } from '@/lib/sms/engine-send'
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
 import { getT } from '@/lib/i18n/translate'
@@ -47,6 +48,13 @@ export interface AutomationContext {
   agent_id?: string
   /** Button / list-row id the customer tapped, for interactive_reply. */
   interactive_reply_id?: string
+  /**
+   * Channel the triggering message arrived on (migration 063). 'sms'
+   * routes text replies over SMS; WhatsApp-only steps (buttons, lists,
+   * templates) fail with a clear reason instead of answering on the
+   * wrong channel. Absent = WhatsApp, as before.
+   */
+  channel?: 'whatsapp' | 'sms'
 }
 
 export interface DispatchInput {
@@ -732,6 +740,10 @@ async function parkForReply(step: AutomationStep, args: ExecuteArgs): Promise<vo
   if (error) throw new Error(tErr('parkForReplyFailed', { message: error.message }))
 }
 
+/** Failed-step detail for a WhatsApp-only step in a run started by an SMS. */
+const SMS_UNSUPPORTED_STEP =
+  'This step sends a WhatsApp-only message (buttons, list or template) and was skipped because the conversation is on SMS.'
+
 async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string> {
   const db = supabaseAdmin()
 
@@ -742,6 +754,15 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       const text = interpolate(cfg.text, args)
       if (!text.trim()) throw new Error(tErr('emptyText'))
       const conversationId = await resolveConversationId(args)
+      if (args.context.channel === 'sms') {
+        const { sms_message_id } = await engineSendSmsText({
+          accountId: args.automation.account_id,
+          conversationId,
+          contactId: args.contactId,
+          text,
+        })
+        return `sent via SMS (${sms_message_id})`
+      }
       const { whatsapp_message_id } = await engineSendText({
         accountId: args.automation.account_id,
         userId: args.automation.user_id,
@@ -756,6 +777,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
     case 'send_list': {
       const payload = step.step_config as SendButtonsStepConfig | SendListStepConfig
       if (!args.contactId) throw new Error(tErr('needsContact', { step: step.step_type }))
+      if (args.context.channel === 'sms') throw new Error(SMS_UNSUPPORTED_STEP)
       // Validate against Meta's limits before the network call so a bad
       // payload surfaces as a clear failed-step detail rather than a raw
       // Meta 400 mid-conversation.
@@ -776,6 +798,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       const cfg = step.step_config as SendTemplateStepConfig
       if (!args.contactId) throw new Error(tErr('needsContact', { step: 'send_template' }))
       if (!cfg.template_name) throw new Error(tErr('needsTemplateName'))
+      if (args.context.channel === 'sms') throw new Error(SMS_UNSUPPORTED_STEP)
       const conversationId = await resolveConversationId(args)
       // Meta templates use positional {{1}}, {{2}}, … placeholders, so
       // we MUST emit params in strict numeric order. Lexicographic sort

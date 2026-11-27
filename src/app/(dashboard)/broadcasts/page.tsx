@@ -245,7 +245,16 @@ export default function BroadcastsPage() {
                       {broadcast.name}
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {broadcast.template_name}
+                      {broadcast.channel === 'sms' ? (
+                        <span className="inline-flex max-w-[28ch] items-center gap-1.5">
+                          <span className="shrink-0 rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                            SMS
+                          </span>
+                          <span className="truncate">{broadcast.sms_body}</span>
+                        </span>
+                      ) : (
+                        broadcast.template_name
+                      )}
                     </TableCell>
                     <TableCell className="hidden text-right text-muted-foreground tabular-nums sm:table-cell">
                       {broadcast.total_recipients}

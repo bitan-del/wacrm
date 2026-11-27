@@ -5,6 +5,7 @@ import {
   useRef,
   useCallback,
   useEffect,
+  useMemo,
   KeyboardEvent,
 } from "react";
 import {
@@ -53,7 +54,8 @@ import {
   blankButtonsPayload,
 } from "@/components/interactive/interactive-builder";
 import { validateInteractivePayload } from "@/lib/whatsapp/interactive";
-import type { InteractiveMessagePayload, QuickReply } from "@/types";
+import type { InteractiveMessagePayload, MessageChannel, QuickReply } from "@/types";
+import { countSmsSegments } from "@/lib/sms/segments";
 import { QuickReplyPicker } from "./quick-reply-picker";
 
 /** Media content types an agent can send from the composer. */
@@ -118,6 +120,13 @@ interface MessageComposerProps {
   onOpenTemplates: () => void;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
+  /** Channel the next text goes out on (migration 063). */
+  channel?: MessageChannel;
+  /** Show the WhatsApp / SMS toggle — the workspace has SMS switched on. */
+  smsAvailable?: boolean;
+  /** The contact sent STOP; SMS replies are blocked. */
+  smsOptedOut?: boolean;
+  onChannelChange?: (channel: MessageChannel) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -140,8 +149,14 @@ export function MessageComposer({
   onOpenTemplates,
   replyTo,
   onClearReply,
+  channel = "whatsapp",
+  smsAvailable = false,
+  smsOptedOut = false,
+  onChannelChange,
 }: MessageComposerProps) {
   const t = useTranslations("Inbox.composer");
+  const tSms = useTranslations("Inbox.smsComposer");
+  const isSms = channel === "sms";
   const tGate = useTranslations("GatedButton");
 
   const [text, setText] = useState("");
@@ -205,7 +220,12 @@ export function MessageComposer({
   const canSend = useCan("send-messages");
   const readOnly = !canSend;
   // Media (like free-form text) is only allowed inside the 24h window.
-  const inputsDisabled = readOnly || sessionExpired;
+  // SMS has no such window, but is blocked once the contact opts out —
+  // and media / interactive / templates are WhatsApp-only.
+  const textBlocked = isSms ? smsOptedOut : sessionExpired;
+  const inputsDisabled = readOnly || sessionExpired || isSms;
+  // Attachments: WhatsApp media inside the 24h window, or a photo as MMS.
+  const attachDisabled = readOnly || textBlocked;
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -237,7 +257,7 @@ export function MessageComposer({
 
   const handleSend = useCallback(async () => {
     const trimmed = text.trim();
-    if (!trimmed || sending || sessionExpired) return;
+    if (!trimmed || sending || textBlocked) return;
 
     setSending(true);
     try {
@@ -249,7 +269,7 @@ export function MessageComposer({
     } finally {
       setSending(false);
     }
-  }, [text, sending, sessionExpired, onSend, replyTo?.id]);
+  }, [text, sending, textBlocked, onSend, replyTo?.id]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -550,11 +570,46 @@ export function MessageComposer({
     setDraft((d) => (d ? { ...d, caption } : d));
   }, []);
 
+  const smsSegments = useMemo(
+    () => (isSms ? countSmsSegments(text) : null),
+    [isSms, text],
+  );
+
   // ---- Render --------------------------------------------------------
 
   return (
     <div className="border-t border-border bg-card p-3">
-      {replyTo && (
+      {smsAvailable && onChannelChange && (
+        <div
+          role="radiogroup"
+          aria-label={tSms("channelLabel")}
+          className="mb-2 inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs"
+        >
+          {(["whatsapp", "sms"] as const).map((c) => (
+            <button
+              key={c}
+              type="button"
+              role="radio"
+              aria-checked={channel === c}
+              onClick={() => onChannelChange(c)}
+              className={cn(
+                "rounded-md px-2.5 py-1 font-medium transition-colors",
+                channel === c
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {tSms(c === "sms" ? "channelSms" : "channelWhatsapp")}
+            </button>
+          ))}
+        </div>
+      )}
+      {isSms && smsOptedOut && (
+        <div className="mb-2 rounded-lg bg-red-500/10 px-3 py-2">
+          <p className="text-xs text-red-400">{tSms("optedOutHint")}</p>
+        </div>
+      )}
+      {replyTo && !isSms && (
         <div className="mb-2">
           <ReplyQuote
             authorLabel={replyTo.authorLabel}
@@ -563,7 +618,7 @@ export function MessageComposer({
           />
         </div>
       )}
-      {sessionExpired && (
+      {sessionExpired && !isSms && (
         <div className="mb-2 flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2">
           <p className="text-xs text-amber-400">
             {t("sessionExpiredHint")}
@@ -654,13 +709,15 @@ export function MessageComposer({
           {/* Attach menu — photo / video / document / voice. */}
           <DropdownMenu>
             <DropdownMenuTrigger
-              disabled={inputsDisabled || busy}
+              disabled={attachDisabled || busy}
               title={
                 readOnly
                   ? t("readOnlyTitle")
-                  : inputsDisabled
+                  : attachDisabled
                     ? undefined
-                    : t("attachMedia")
+                    : isSms
+                      ? tSms("attachPhoto")
+                      : t("attachMedia")
               }
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -675,18 +732,24 @@ export function MessageComposer({
                 <ImageIcon className="mr-2 h-4 w-4" />
                 {t("photo")}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => videoInputRef.current?.click()}>
-                <Video className="mr-2 h-4 w-4" />
-                {t("video")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => documentInputRef.current?.click()}>
-                <FileText className="mr-2 h-4 w-4" />
-                {t("document")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void startRecording()}>
-                <Mic className="mr-2 h-4 w-4" />
-                {t("voiceNote")}
-              </DropdownMenuItem>
+              {/* MMS: photos only — carriers deliver images reliably,
+                  video / documents / voice much less so. */}
+              {!isSms && (
+                <>
+                  <DropdownMenuItem onClick={() => videoInputRef.current?.click()}>
+                    <Video className="mr-2 h-4 w-4" />
+                    {t("video")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => documentInputRef.current?.click()}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    {t("document")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void startRecording()}>
+                    <Mic className="mr-2 h-4 w-4" />
+                    {t("voiceNote")}
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -724,6 +787,8 @@ export function MessageComposer({
             canAct={!readOnly}
             gateReason={tGate("reasons.sendMessages")}
             title={readOnly ? undefined : t("sendTemplate")}
+            // WhatsApp templates don't exist on SMS.
+            disabled={isSms}
             className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
             onClick={onOpenTemplates}
           >
@@ -756,11 +821,15 @@ export function MessageComposer({
             placeholder={
               readOnly
                 ? t("readOnlyPlaceholder")
-                : sessionExpired
-                  ? t("sessionExpiredPlaceholder")
-                  : t("typeMessagePlaceholder")
+                : isSms
+                  ? smsOptedOut
+                    ? tSms("optedOutPlaceholder")
+                    : tSms("placeholder")
+                  : sessionExpired
+                    ? t("sessionExpiredPlaceholder")
+                    : t("typeMessagePlaceholder")
             }
-            disabled={sessionExpired || readOnly}
+            disabled={textBlocked || readOnly}
             rows={1}
             // Textarea keeps its own inline title — the GatedButton
             // wrapping pattern doesn't apply to non-button inputs.
@@ -768,7 +837,7 @@ export function MessageComposer({
             title={readOnly ? t("readOnlyTitle") : undefined}
             className={cn(
               "order-1 min-w-0 flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50 sm:order-2",
-              (sessionExpired || readOnly) && "cursor-not-allowed opacity-50"
+              (textBlocked || readOnly) && "cursor-not-allowed opacity-50"
             )}
           />
 
@@ -776,7 +845,7 @@ export function MessageComposer({
             size="sm"
             canAct={!readOnly}
             gateReason={tGate("reasons.sendMessages")}
-            disabled={!text.trim() || sessionExpired || sending}
+            disabled={!text.trim() || textBlocked || sending}
             onClick={handleSend}
             className="order-1 h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40 sm:order-3"
           >
@@ -790,7 +859,13 @@ export function MessageComposer({
           under the textarea left edge. */}
       {!draft && !recording && (
         <p className="mt-1 pl-1 text-[10px] text-muted-foreground sm:pl-[5.5rem]">
-          {t("draftHint")}
+          {isSms && smsSegments && text
+            ? tSms("segmentCounter", {
+                segments: smsSegments.segments,
+                encoding: smsSegments.encoding,
+                remaining: smsSegments.remainingInSegment,
+              })
+            : t("draftHint")}
         </p>
       )}
 

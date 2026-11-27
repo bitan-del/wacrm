@@ -10,6 +10,26 @@ export interface ParsedContactRow {
   company?: string;
   /** Tag names from the optional `tags` column (comma/semicolon separated). */
   tagNames: string[];
+  /**
+   * Optional `sms_consent` column: true for yes/y/true/1/opt_in/opted_in,
+   * false for an explicit no, undefined when the column is absent or blank.
+   * Only `true` records anything (an SMS opt-in with source `import`).
+   */
+  smsConsent?: boolean;
+  /** Optional `timezone` column (IANA name), for SMS quiet hours. */
+  timezone?: string;
+}
+
+const CONSENT_YES = new Set(['yes', 'y', 'true', '1', 'opt_in', 'opt-in', 'opted_in', 'opted in', 'x']);
+const CONSENT_NO = new Set(['no', 'n', 'false', '0', 'opt_out', 'opt-out', 'opted_out', 'opted out']);
+
+/** Interpret an `sms_consent` cell. */
+export function parseConsentCell(value: string | undefined): boolean | undefined {
+  const v = (value ?? '').replace(/["']/g, '').trim().toLowerCase();
+  if (!v) return undefined;
+  if (CONSENT_YES.has(v)) return true;
+  if (CONSENT_NO.has(v)) return false;
+  return undefined;
 }
 
 /** Split a CSV cell into unique tag names (case-insensitive de-dupe). */
@@ -75,6 +95,8 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
   const emailIdx = headers.indexOf('email');
   const companyIdx = headers.indexOf('company');
   const tagsIdx = headers.indexOf('tags');
+  const consentIdx = headers.findIndex((h) => h === 'sms_consent' || h === 'sms consent' || h === 'sms_opt_in');
+  const timezoneIdx = headers.indexOf('timezone');
 
   const rows: ParsedContactRow[] = [];
 
@@ -107,6 +129,11 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
           : undefined,
       tagNames:
         tagsIdx >= 0 ? parseTagCell(values[tagsIdx]?.replace(/["']/g, '')) : [],
+      smsConsent: consentIdx >= 0 ? parseConsentCell(values[consentIdx]) : undefined,
+      timezone:
+        timezoneIdx >= 0
+          ? values[timezoneIdx]?.replace(/["']/g, '').trim() || undefined
+          : undefined,
     });
   }
 

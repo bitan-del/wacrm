@@ -54,6 +54,8 @@ import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
+import { BulkSmsConsent } from '@/components/contacts/bulk-sms-consent';
+import { useSmsStatus } from '@/hooks/use-sms-status';
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useLocale, useTranslations } from 'next-intl';
@@ -76,6 +78,7 @@ export default function ContactsPage() {
   const supabase = createClient();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
+  const smsStatus = useSmsStatus();
 
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
   const [loading, setLoading] = useState(true);
@@ -533,6 +536,16 @@ export default function ContactsPage() {
             >
               {t('clearSelection')}
             </Button>
+            {smsStatus.enabled && (
+              <BulkSmsConsent
+                contactIds={[...selected]}
+                canAct={canEdit}
+                onDone={() => {
+                  setSelected(new Set());
+                  void fetchContacts();
+                }}
+              />
+            )}
             <GatedButton
               variant="destructive"
               size="sm"

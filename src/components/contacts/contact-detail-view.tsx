@@ -44,6 +44,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import { planCustomValueWrites } from '@/lib/contacts/custom-value-writes';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
 import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
+import { SmsConsentCard } from './sms-consent-card';
+import { useSmsStatus } from '@/hooks/use-sms-status';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -62,6 +64,7 @@ export function ContactDetailView({
   const locale = useLocale();
   const supabase = createClient();
   const { accountId, defaultCurrency } = useAuth();
+  const smsStatus = useSmsStatus();
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
@@ -548,6 +551,21 @@ export function ContactDetailView({
                     )}
                     {t('saveChangesBtn')}
                   </Button>
+                  {/* SMS consent — shown once SMS is on, or whenever the
+                      contact already has a consent record. */}
+                  {contact &&
+                    (smsStatus.enabled ||
+                      contact.sms_opted_in_at ||
+                      contact.sms_opted_out_at) && (
+                      <SmsConsentCard
+                        key={contact.id}
+                        contact={contact}
+                        onChanged={() => {
+                          fetchContact();
+                          onUpdated();
+                        }}
+                      />
+                    )}
                 </div>
               </TabsContent>
 
