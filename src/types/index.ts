@@ -712,3 +712,65 @@ export interface QuickReply {
   created_at: string;
   updated_at: string;
 }
+
+// ============================================================
+// WhatsApp calls (migration 061)
+// ============================================================
+
+export type CallDirection = 'inbound' | 'outbound';
+
+export type CallStatus =
+  | 'dialing'
+  | 'ringing'
+  | 'answering'
+  | 'in_progress'
+  | 'completed'
+  | 'missed'
+  | 'rejected'
+  | 'canceled'
+  | 'failed';
+
+export type CallRecordingStatus = 'none' | 'requested' | 'available' | 'failed';
+
+export interface Call {
+  id: string;
+  account_id: string;
+  wa_call_id: string | null;
+  phone_number_id: string;
+  contact_id: string | null;
+  conversation_id: string | null;
+  direction: CallDirection;
+  status: CallStatus;
+  customer_wa_id: string | null;
+  sdp_offer: string | null;
+  sdp_answer: string | null;
+  answered_by: string | null;
+  placed_by: string | null;
+  started_at: string;
+  answered_at: string | null;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  error_code: number | null;
+  error_title: string | null;
+  error_details: string | null;
+  recording_status: CallRecordingStatus;
+  recording_path: string | null;
+  recording_mime: string | null;
+  /** Migration 064: the call was answered / placed by the AI agent. */
+  handled_by_ai?: boolean;
+  ai_transcript?: CallTranscriptLine[] | null;
+  ai_notes?: Record<string, string> | null;
+  ai_summary?: string | null;
+  created_at: string;
+  updated_at: string;
+  contact?: Pick<Contact, 'id' | 'name' | 'phone'> & { wa_username?: string | null };
+}
+
+export interface CallTranscriptLine {
+  role: 'agent' | 'customer';
+  text: string;
+  at?: string;
+}
+
+export type CallAiInboundMode = 'off' | 'always' | 'unanswered';
+export type PhoneAiProvider = 'nutriherb' | 'dakiya' | 'custom';

@@ -32,6 +32,23 @@ import {
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook'
 import { applyMessageStatus } from '@/lib/whatsapp/message-status-sync'
+import { getT } from '@/lib/i18n/translate'
+import {
+  parseCallsWebhookValue,
+  type WaCallPayload,
+  type WaCallStatusPayload,
+} from '@/lib/whatsapp/call-events'
+import {
+  applyCallEvent,
+  recordIncomingCall,
+  storeCallRecording,
+} from '@/lib/whatsapp/call-store'
+import {
+  forwardCallEventToVoiceServer,
+  routeIncomingCallToAi,
+} from '@/lib/whatsapp/call-ai'
+
+const tCalls = getT('Api.calls')
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -83,9 +100,19 @@ interface WhatsAppMessage {
    * to advance the per-contact run.
    */
   interactive?: {
-    type: 'button_reply' | 'list_reply'
+    type: 'button_reply' | 'list_reply' | 'call_permission_reply'
     button_reply?: { id: string; title: string }
     list_reply?: { id: string; title: string; description?: string }
+    /**
+     * The customer answered a call-permission request (WhatsApp
+     * calling). `is_permanent` false means the grant lasts 7 days.
+     */
+    call_permission_reply?: {
+      response?: 'accept' | 'reject'
+      is_permanent?: boolean
+      expiration_timestamp?: string | number
+      response_source?: 'user_action' | 'automatic'
+    }
   }
   /**
    * Set when the customer taps a QUICK_REPLY button on a *template*
@@ -139,6 +166,8 @@ interface WhatsAppWebhookEntry {
         parent_user_id?: string
       }>
       messages?: WhatsAppMessage[]
+      /** `field === 'calls'` only — see processCallsChange. */
+      calls?: WaCallPayload[]
       statuses?: Array<{
         id: string
         status: string
@@ -342,6 +371,14 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
         continue
       }
 
+      // WhatsApp calling: ringing / answered / ended / recordings. Its
+      // `statuses` are call statuses, not message statuses, so it must
+      // not fall through to the message branches below.
+      if (change.field === 'calls') {
+        await processCallsChange(change.value)
+        continue
+      }
+
       const value = change.value
 
       // Handle status updates
@@ -419,6 +456,112 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           config.mirror_inbound_media !== false
         )
       }
+    }
+  }
+}
+
+/**
+ * `calls` webhook field — WhatsApp calling (migration 061).
+ *
+ *  - connect (customer → business): find/create the contact and thread
+ *    like an inbound message would, then insert a ringing `calls` row.
+ *    Agents' browsers ring off that INSERT via Realtime and answer
+ *    through /api/whatsapp/calls/[id]/answer.
+ *  - connect (business → customer): Meta's SDP answer for a call an
+ *    agent placed; the calling browser applies it.
+ *  - statuses / terminate: move the row through its state machine.
+ *  - call_recording_available: mirror the audio into storage before
+ *    Meta's 5-minute download URL expires.
+ */
+async function processCallsChange(value: WhatsAppWebhookEntry['changes'][number]['value']) {
+  const phoneNumberId = value.metadata?.phone_number_id
+  if (!phoneNumberId) return
+
+  const { data: configRows, error: configError } = await supabaseAdmin()
+    .from('whatsapp_config')
+    .select('account_id, user_id, access_token')
+    .eq('phone_number_id', phoneNumberId)
+  if (configError || !configRows || configRows.length !== 1) {
+    console.error(
+      `[calls] phone_number_id ${phoneNumberId} matched ${configRows?.length ?? 0} configs; call event dropped`,
+      configError ?? ''
+    )
+    return
+  }
+  const config = configRows[0] as { account_id: string; user_id: string; access_token: string }
+
+  const events = parseCallsWebhookValue({
+    calls: value.calls,
+    statuses: value.statuses as WaCallStatusPayload[] | undefined,
+  })
+
+  for (const event of events) {
+    try {
+      if (event.kind === 'incoming') {
+        const identity = resolveInboundIdentity(
+          {
+            from: event.from ?? undefined,
+            from_user_id: event.fromUserId ?? undefined,
+            from_parent_user_id: event.fromParentUserId ?? undefined,
+          },
+          value.contacts?.[0]
+        )
+        let contactId: string | null = null
+        let conversationId: string | null = null
+        if (hasUsableIdentity(identity)) {
+          const contactOutcome = await findOrCreateContact(
+            config.account_id,
+            config.user_id,
+            identity
+          )
+          if (contactOutcome) {
+            contactId = contactOutcome.contact.id
+            const convResult = await findOrCreateConversation(
+              config.account_id,
+              config.user_id,
+              contactOutcome.contact.id
+            )
+            if (convResult) {
+              conversationId = convResult.conversation.id
+              if (convResult.created) {
+                await dispatchWebhookEvent(supabaseAdmin(), config.account_id, 'conversation.created', {
+                  conversation_id: convResult.conversation.id,
+                  contact_id: contactOutcome.contact.id,
+                })
+              }
+            }
+          }
+        }
+        const callRowId = await recordIncomingCall(supabaseAdmin(), {
+          accountId: config.account_id,
+          phoneNumberId,
+          callId: event.callId,
+          contactId,
+          conversationId,
+          customerWaId: identity.phone || identity.waUserId || null,
+          sdpOffer: event.sdpOffer,
+          startedAt: event.at,
+        })
+        // AI agent: take it now, or after N unanswered seconds (migration 064).
+        if (callRowId) {
+          await routeIncomingCallToAi(supabaseAdmin(), config.account_id, callRowId)
+        }
+      } else if (event.kind === 'recording') {
+        await storeCallRecording(
+          supabaseAdmin(),
+          config.account_id,
+          event,
+          decrypt(config.access_token)
+        )
+      } else {
+        await applyCallEvent(supabaseAdmin(), config.account_id, event)
+        await forwardCallEventToVoiceServer(supabaseAdmin(), config.account_id, event)
+      }
+    } catch (err) {
+      console.error(
+        `[calls] failed to handle ${event.kind} for ${event.callId}:`,
+        err instanceof Error ? err.message : err
+      )
     }
   }
 }
@@ -960,6 +1103,19 @@ async function processMessage(
   })
 }
 
+function callPermissionReplyText(
+  reply: NonNullable<WhatsAppMessage['interactive']>['call_permission_reply']
+): string {
+  if (!reply || reply.response !== 'accept') {
+    return tCalls('permissionDeclined')
+  }
+  if (reply.is_permanent) return tCalls('permissionGrantedPermanent')
+  const expiry = metaTimestampToIso(String(reply.expiration_timestamp ?? ''))
+  return expiry
+    ? tCalls('permissionGrantedUntil', { date: expiry.slice(0, 10) })
+    : tCalls('permissionGranted')
+}
+
 async function parseMessageContent(
   message: WhatsAppMessage,
   accessToken: string,
@@ -1147,6 +1303,13 @@ async function parseMessageContent(
       // Use the human-readable title as contentText so the inbox bubble
       // renders the tap legibly ("Existing customer"), and stash the
       // stable id separately so the Flows engine can route on it.
+      // Answer to a WhatsApp-calling permission request. Stored as a
+      // readable line so agents can see in the thread whether they may
+      // call this customer (and for how long).
+      const permission = message.interactive?.call_permission_reply
+      if (message.interactive?.type === 'call_permission_reply' || permission) {
+        return { ...empty, contentText: callPermissionReplyText(permission) }
+      }
       const reply =
         message.interactive?.button_reply ?? message.interactive?.list_reply
       if (reply?.id) {

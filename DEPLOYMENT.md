@@ -54,8 +54,16 @@ the dead project's values):
 > Both point at the same Supabase database, so a mismatch would make already
 > encrypted WhatsApp tokens undecryptable.
 
-Not set yet: **`META_APP_SECRET`** — add it when connecting the WhatsApp
-Business API.
+- `META_APP_SECRET` — secret; the Meta app's App Secret (Meta → App settings →
+  Basic). Without it every webhook POST is rejected with 401 and nothing
+  reaches the inbox. Set for Production on 2026-11-25.
+
+## WhatsApp webhook
+
+The Meta app (it lives on a colleague's Meta account) sends to
+`https://waba.outreach-pro.in/api/whatsapp/webhook` with the `messages` field
+subscribed. WhatsApp calling additionally needs the `calls` field — see
+[docs/whatsapp-calling.md](docs/whatsapp-calling.md).
 
 ## Database
 

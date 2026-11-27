@@ -138,3 +138,24 @@ describe("middleware — every dashboard route requires a session", () => {
     expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
   });
 });
+
+describe("middleware — WhatsApp API auth", () => {
+  const post = (path: string) =>
+    middleware(new NextRequest(`https://app.test${path}`, { method: "POST" }));
+
+  it("rejects signed-out calls to WhatsApp APIs", async () => {
+    const res = await post("/api/whatsapp/calls/dial");
+    expect(res.status).toBe(401);
+  });
+
+  it("lets Meta's webhook and the voice server callback through (they verify signatures themselves)", async () => {
+    expect((await post("/api/whatsapp/webhook")).status).not.toBe(401);
+    expect((await post("/api/whatsapp/calls/ai-events")).status).not.toBe(401);
+  });
+
+  it("does not open anything else under /calls", async () => {
+    expect((await post("/api/whatsapp/calls/ai-events-x")).status).toBe(401);
+    expect((await post("/api/whatsapp/calls/ai-settings")).status).toBe(401);
+  });
+});
+

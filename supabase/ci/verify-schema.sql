@@ -163,6 +163,40 @@ BEGIN
     RAISE EXCEPTION 'anon can execute dashboard_overview — migration 059 grants are wrong';
   END IF;
 
+  IF to_regclass('public.calls') IS NULL THEN
+    RAISE EXCEPTION 'public.calls is missing — migration 061 did not apply';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'calls'
+  ) THEN
+    RAISE EXCEPTION 'calls is not in the supabase_realtime publication — migration 061 did not apply';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM storage.buckets WHERE id = 'call-recordings' AND public = FALSE
+  ) THEN
+    RAISE EXCEPTION 'the private call-recordings bucket is missing — migration 061 did not apply';
+  END IF;
+  IF (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'whatsapp_config'
+      AND column_name IN ('calling_enabled', 'call_recording_enabled',
+                          'call_recording_purpose', 'call_recording_language')
+  ) <> 4 THEN
+    RAISE EXCEPTION 'whatsapp_config calling columns are missing — migration 061 did not apply';
+  END IF;
+
+  IF to_regclass('public.call_ai_settings') IS NULL THEN
+    RAISE EXCEPTION 'public.call_ai_settings is missing — migration 064 did not apply';
+  END IF;
+  IF (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'calls'
+      AND column_name IN ('handled_by_ai', 'ai_transcript', 'ai_notes', 'ai_summary')
+  ) <> 4 THEN
+    RAISE EXCEPTION 'calls AI columns are missing — migration 064 did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

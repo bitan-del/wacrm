@@ -1,0 +1,20 @@
+{
+  "name": "wacrm-voice-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gemini Live AI agent on WhatsApp Business Cloud API calls (WebRTC media bridge).",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  },
+  "dependencies": {
+    "opusscript": "0.1.1",
+    "werift": "0.27.0"
+  }
+}

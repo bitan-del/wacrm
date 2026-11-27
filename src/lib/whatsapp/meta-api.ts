@@ -92,7 +92,7 @@ export class MetaApiError extends Error {
  * Read a failed Graph response into a MetaApiError without throwing.
  * Consumes the body — call at most once per response.
  */
-async function readMetaError(response: Response, fallback: string): Promise<MetaApiError> {
+export async function readMetaError(response: Response, fallback: string): Promise<MetaApiError> {
   let message = fallback
   let envelope: MetaErrorResponse['error'] | undefined
   try {

@@ -51,6 +51,7 @@ import {
 import { deleteAccountMedia } from "@/lib/storage/upload-media";
 import { TemplatePicker } from "./template-picker";
 import { AiThreadBanner } from "./ai-thread-banner";
+import { CallButton } from "@/components/calls/call-button";
 import { buildReplyPreview } from "./reply-quote";
 import {
   renderTemplateBody,
@@ -1051,6 +1052,11 @@ export function MessageThread({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* WhatsApp call — checks the customer's call permission with
+              Meta, then dials (or offers to ask for permission). Renders
+              nothing for viewers. */}
+          <CallButton conversationId={conversation.id} contactLabel={displayName} />
+
           {/* Contact-panel toggle — desktop only. The contact sidebar
               eats a chunk of horizontal width that crowds the thread on
               smaller laptops; this lets agents reclaim it when they just

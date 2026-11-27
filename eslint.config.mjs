@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Vendored minified opus-recorder encoder worker (served statically).
     "public/opus/**",
+    // Standalone AI voice server — its own package, lint and tests.
+    "voice-server/**",
   ]),
 ]);
 

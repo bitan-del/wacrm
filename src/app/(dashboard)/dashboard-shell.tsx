@@ -9,6 +9,7 @@ import { Header } from "@/components/layout/header";
 import { AccountAccessAlert } from "@/components/layout/account-access-alert";
 import { PresenceHeartbeat } from "@/components/presence/presence-heartbeat";
 import { BrowserNotificationsListener } from "@/components/notifications/browser-notifications-listener";
+import { CallProvider } from "@/components/calls/call-provider";
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -44,6 +45,10 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
+    // WhatsApp calls live above the routed page so a call survives
+    // navigating around the app; it also renders the ringing / in-call
+    // overlay.
+    <CallProvider>
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Reports this tab's online/away presence once we know a user is
           signed in. Headless — renders nothing. */}
@@ -63,6 +68,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+    </CallProvider>
   );
 }
 
