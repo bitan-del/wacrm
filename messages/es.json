@@ -457,7 +457,9 @@
       "downloadFailed": "No se pudo descargar el adjunto",
       "viewImage": "Ver imagen",
       "expandVideo": "Ampliar video",
-      "imageAlt": "Imagen compartida"
+      "imageAlt": "Imagen compartida",
+      "smsBadge": "SMS",
+      "smsBadgeTitle": "Enviado o recibido por SMS"
     },
     "mediaViewer": {
       "counter": "{index} de {total}",
@@ -534,6 +536,15 @@
       "resumed": "IA reanudada.",
       "updateError": "No se pudo actualizar el asistente de IA.",
       "networkError": "No se pudo conectar con el servidor."
+    },
+    "smsComposer": {
+      "channelLabel": "Canal de respuesta",
+      "channelWhatsapp": "WhatsApp",
+      "channelSms": "SMS",
+      "optedOutHint": "Este contacto se dio de baja de los SMS (envió STOP). Debe enviar START antes de que puedas volver a escribirle.",
+      "placeholder": "Escribe un SMS…",
+      "optedOutPlaceholder": "SMS no disponible: el contacto se dio de baja",
+      "segmentCounter": "{segments, plural, one {# segmento} other {# segmentos}} · {encoding} · quedan {remaining}"
     }
   },
   "Contacts": {
@@ -754,6 +765,46 @@
       "toastRenameFailed": "No se pudo renombrar el campo.",
       "toastDeleteFailed": "No se pudo eliminar el campo.",
       "toastDeleted": "\"{name}\" eliminado."
+    },
+    "smsConsent": {
+      "title": "Consentimiento para SMS",
+      "statusOptedIn": "Suscrito",
+      "statusOptedOut": "Dado de baja",
+      "statusNone": "Sin consentimiento",
+      "optedInDetail": "Suscrito el {date} mediante {source}.",
+      "optedOutDetail": "Dado de baja el {date} mediante {source}.",
+      "noneDetail": "No hay consentimiento para SMS registrado. Este contacto no recibirá difusiones por SMS.",
+      "sourceLabel": "Origen del consentimiento",
+      "inSources": {
+        "keyword": "Palabra clave START",
+        "web_form": "Formulario web",
+        "paper_form": "Formulario en papel",
+        "verbal": "Verbal (grabado)",
+        "import": "Importación",
+        "api": "API",
+        "manual": "Manual",
+        "other": "Otro"
+      },
+      "outSources": {
+        "keyword": "respuesta STOP",
+        "provider": "operador / proveedor",
+        "manual": "actualización manual",
+        "api": "API",
+        "other": "otro"
+      },
+      "recordOptIn": "Registrar suscripción",
+      "optInAttestation": "Registra una suscripción solo si tienes el consentimiento expreso por escrito del contacto para recibir tus mensajes de marketing.",
+      "markOptedOut": "Marcar como dado de baja",
+      "reoptInBlocked": "Este contacto se dio de baja por mensaje. Debe enviar START para volver a suscribirse.",
+      "optedInToast": "Suscripción a SMS registrada.",
+      "optedOutToast": "Contacto marcado como dado de baja de los SMS.",
+      "saveFailed": "No se pudo actualizar el consentimiento para SMS.",
+      "timezoneLabel": "Zona horaria (para el horario de silencio)",
+      "timezonePlaceholder": "p. ej. America/Chicago",
+      "timezoneHint": "Déjalo vacío para usar la predeterminada del espacio de trabajo.",
+      "timezoneInvalid": "Ingresa una zona horaria válida, como America/Chicago.",
+      "timezoneSaved": "Zona horaria guardada.",
+      "save": "Guardar"
     }
   },
   "Pipelines": {
@@ -959,7 +1010,12 @@
       "toastResumeStartedCapped": "Enviando a {count} destinatarios en segundo plano. Otros {remaining} necesitarán otra ejecución.",
       "toastResumeFailed": "No se pudo reanudar: {error}",
       "unknownError": "Error desconocido",
-      "unknownContact": "Desconocido"
+      "unknownContact": "Desconocido",
+      "smsBadge": "SMS",
+      "smsQueuedTitle": "{count, plural, one {Queda # mensaje} other {Quedan # mensajes}} por enviar",
+      "smsQueuedQuietHours": "{count, plural, one {# está retenido} other {# están retenidos}} por el horario de silencio; el próximo sale el {date, date, medium} a las {date, time, short}.",
+      "smsQueuedHint": "Enviando en segundo plano. Esta página se actualiza a medida que salen los mensajes.",
+      "smsScheduledFor": "Programado para {date, date, short} {date, time, short}"
     },
     "new": {
       "title": "Nueva difusión",
@@ -977,7 +1033,18 @@
       "toastDraftSaved": "Borrador guardado",
       "broadcastFailed": "Falló la difusión",
       "toastSendTakenOver": "Otro envío tomó el control de esta difusión, así que esta pestaña dejó de enviar. Abre la difusión para seguir su progreso.",
-      "toastSendInterrupted": "El envío se detuvo porque se perdió la conexión con el servidor. Abre la difusión y usa Reanudar envío para enviar a los destinatarios restantes. El botón aparece en un máximo de 5 minutos."
+      "toastSendInterrupted": "El envío se detuvo porque se perdió la conexión con el servidor. Abre la difusión y usa Reanudar envío para enviar a los destinatarios restantes. El botón aparece en un máximo de 5 minutos.",
+      "smsSteps": {
+        "message": "Mensaje",
+        "review": "Revisión"
+      },
+      "channel": {
+        "whatsapp": "WhatsApp",
+        "whatsappDesc": "Plantillas aprobadas mediante la API de WhatsApp Business.",
+        "sms": "SMS",
+        "smsDesc": "Mensajes de texto a contactos con consentimiento para SMS. Úsalo para promociones en EE. UU."
+      },
+      "toastSmsQueued": "Difusión por SMS iniciada para {count, plural, one {# destinatario} other {# destinatarios}}."
     },
     "wizard": {
       "next": "Siguiente",
@@ -1105,6 +1172,48 @@
       "apiRequestFailed": "Falló la solicitud a la API de difusión",
       "noPhoneOnContact": "El contacto no tiene número de teléfono",
       "unknownError": "Error desconocido"
+    },
+    "sms": {
+      "audienceConsentNote": "El SMS llega solo a contactos que aceptaron recibir SMS y no se dieron de baja. Los números de un CSV se buscan entre los contactos existentes; los números nuevos se omiten porque no tienen consentimiento registrado.",
+      "composeTitle": "Escribe tu SMS",
+      "composeSubtitle": "Sé breve: un segmento tiene 160 caracteres, o 70 si el texto usa emojis o caracteres especiales.",
+      "composePlaceholder": "Hola, nuestra venta de primavera empieza hoy: 20% de descuento en tienda y en línea.",
+      "insertTag": "Insertar:",
+      "fallbackHint": "Agrega un valor alternativo para campos vacíos con una barra vertical, p. ej. {example}",
+      "unknownTags": "Etiquetas de combinación desconocidas: {tags}",
+      "prefixBrand": "Empezar el mensaje con “{brand}:” (los operadores exigen identificar al remitente)",
+      "prefixBrandMissing": "Empezar con el nombre de tu marca: primero configúralo en Configuración → SMS",
+      "appendOptOut": "Agregar “Reply STOP to opt out.” si el mensaje no explica cómo darse de baja (el texto se envía en inglés, como esperan los operadores de EE. UU.)",
+      "optOutWarning": "Los mensajes de marketing deben indicar cómo darse de baja. Desactívalo solo si tu mensaje ya lo hace.",
+      "previewLabel": "Vista previa con un contacto de ejemplo",
+      "previewEmpty": "Tu mensaje aparecerá aquí.",
+      "segmentCounter": "{segments, plural, one {# segmento} other {# segmentos}} · {encoding} · {units} caracteres · quedan {remaining} en este segmento",
+      "unicodeWarning": "Estos caracteres pasan el mensaje a Unicode (70 por segmento): {chars}",
+      "tooLong": "Los SMS tienen un límite de {max} caracteres.",
+      "back": "Atrás",
+      "next": "Siguiente",
+      "reviewTitle": "Revisar y enviar",
+      "reviewSubtitle": "Comprueba quién lo recibirá, cuánto cuesta y cuándo se envía.",
+      "broadcastName": "Nombre de la difusión",
+      "broadcastNamePlaceholder": "p. ej. Venta de primavera — EE. UU.",
+      "previewFailed": "No se pudo calcular la audiencia.",
+      "previewLoading": "Revisando consentimiento y calculando segmentos…",
+      "recipients": "Destinatarios",
+      "segments": "Segmentos",
+      "estimatedCost": "Costo estimado",
+      "encoding": "Codificación",
+      "encodingValue": "{encoding}, hasta {segments} por mensaje",
+      "costFootnote": "Estimación a {rate} por segmento. Tu proveedor cobra aparte las tarifas de operador.",
+      "excludedTitle": "No todos en esta audiencia de {total} lo recibirán",
+      "excludedNoConsent": "{count, plural, one {# contacto no tiene} other {# contactos no tienen}} consentimiento para SMS",
+      "excludedOptedOut": "{count, plural, one {# contacto se dio} other {# contactos se dieron}} de baja",
+      "excludedInvalidPhone": "{count, plural, one {# contacto no tiene} other {# contactos no tienen}} un número válido",
+      "deferredNote": "{count, plural, one {# destinatario está} other {# destinatarios están}} en horario de silencio ({start}:00–{end}:00 hora local) y se enviarán automáticamente cuando empiece su mañana.",
+      "sampleLabel": "Mensaje de ejemplo",
+      "sendNow": "Enviar SMS",
+      "confirmTitle": "¿Enviar esta difusión por SMS?",
+      "confirmDesc": "Se enviará un SMS a {count, plural, one {# destinatario} other {# destinatarios}}. Costo estimado: {cost}. Los mensajes de texto no se pueden recuperar.",
+      "cancel": "Cancelar"
     }
   },
   "Automations": {
@@ -1974,7 +2083,8 @@
       "deals": "Negocios y moneda",
       "inbox": "Bandeja de entrada",
       "members": "Miembros del equipo",
-      "api": "Claves de API"
+      "api": "Claves de API",
+      "sms": "SMS"
     },
     "groups": {
       "account": "Cuenta",
@@ -2258,6 +2368,76 @@
       "textPlaceholder": "El texto del mensaje que se insertará",
       "cancel": "Cancelar",
       "save": "Guardar"
+    },
+    "smsConfig": {
+      "title": "SMS",
+      "description": "Envía y recibe SMS junto con WhatsApp: la vía para mensajes promocionales en EE. UU. ahora que Meta pausó las plantillas de marketing a números +1. Conecta tu propia cuenta de Twilio.",
+      "loadFailed": "No se pudo cargar la configuración de SMS.",
+      "missingToken": "Ingresa el Auth Token de Twilio.",
+      "saveFailed": "No se pudo guardar la configuración de SMS.",
+      "saveSuccess": "Configuración de SMS verificada con Twilio y guardada.",
+      "removeConfirm": "¿Desconectar el SMS de este espacio de trabajo? Los envíos se detienen de inmediato y los mensajes de difusión en cola fallarán.",
+      "removeFailed": "No se pudo desconectar el SMS.",
+      "removeSuccess": "SMS desconectado.",
+      "copied": "Copiado.",
+      "copyFailed": "No se pudo copiar.",
+      "adminOnly": "Solo los administradores pueden ver o cambiar la conexión de SMS.",
+      "complianceTitle": "Antes de enviar a números de EE. UU.",
+      "complianceRegistration": "Los operadores bloquean los mensajes comerciales no registrados. Registra tu propia marca y campaña A2P 10DLC (o verifica tu número gratuito) en Twilio y asocia tu número. Cada espacio de trabajo necesita su propio registro.",
+      "complianceConsent": "Envía mensajes solo a personas que dieron su consentimiento expreso por escrito. Las difusiones van solo a contactos con una aceptación de SMS registrada; STOP y respuestas similares los dan de baja automáticamente.",
+      "complianceQuietHours": "Los mensajes de marketing se retienen fuera del horario de silencio indicado abajo, en la hora local de cada destinatario.",
+      "providerTitle": "Cuenta del proveedor",
+      "providerDesc": "Tu Auth Token se verifica con Twilio y se guarda cifrado. No se vuelve a mostrar.",
+      "provider": "Proveedor",
+      "accountSid": "Account SID",
+      "authToken": "Auth Token",
+      "hideToken": "Ocultar token",
+      "showToken": "Mostrar token",
+      "authTokenHint": "Consola de Twilio → Información de la cuenta. También verifica que los webhooks entrantes provengan realmente de Twilio.",
+      "messagingServiceSid": "Messaging Service SID",
+      "messagingServiceHint": "Recomendado. La campaña A2P 10DLC se asocia al Messaging Service.",
+      "fromNumber": "Número remitente",
+      "fromNumberHint": "Se usa cuando no hay un Messaging Service, p. ej. un número gratuito verificado.",
+      "registrationTitle": "Registro y respuestas de cumplimiento",
+      "registrationDesc": "Indica qué registro de operador usa este remitente y qué recibe la gente cuando envía HELP.",
+      "registrationType": "Tipo de registro",
+      "registrationTypes": {
+        "none": "Sin registrar",
+        "10dlc": "A2P 10DLC (número local)",
+        "toll_free": "Verificación de número gratuito",
+        "short_code": "Código corto",
+        "other": "Otro"
+      },
+      "registrationReference": "ID de campaña o verificación",
+      "registrationReferencePlaceholder": "p. ej. CM… o el SID de verificación del número gratuito",
+      "brandName": "Nombre de la marca",
+      "brandNamePlaceholder": "p. ej. Tienda Acme",
+      "brandNameHint": "Los operadores exigen que los mensajes identifiquen al remitente. Las difusiones pueden empezar con este nombre.",
+      "helpReply": "Respuesta a HELP",
+      "helpReplyPlaceholder": "Marca: Responde STOP para darte de baja. Pueden aplicar tarifas de mensajes y datos.",
+      "helpReplyHint": "Se envía automáticamente cuando alguien escribe HELP o INFO. Déjalo vacío para usar el texto predeterminado.",
+      "optOutReply": "Confirmación de STOP",
+      "optInReply": "Confirmación de START",
+      "confirmationsHint": "Twilio ya confirma STOP y START por su cuenta, así que estos solo se envían con proveedores que no lo hacen.",
+      "sendingTitle": "Horario de silencio y precios",
+      "sendingDesc": "Los mensajes de difusión nunca se envían durante el horario de silencio en la hora local del destinatario. Los contactos sin zona horaria usan la predeterminada.",
+      "defaultTimezone": "Zona horaria predeterminada",
+      "quietStart": "Inicio del silencio (hora)",
+      "quietEnd": "Fin del silencio (hora)",
+      "quietHoursHint": "Predeterminado 21 → 8 (sin envíos de 9 p. m. a 8 a. m.). Algunos estados son más estrictos: reduce el rango si tu audiencia lo requiere.",
+      "costPerSegment": "Costo por segmento",
+      "currency": "Moneda",
+      "costHint": "Solo se usa para la estimación del asistente de difusión. Tu proveedor cobra aparte las tarifas de operador.",
+      "webhooksTitle": "Webhooks",
+      "webhooksDesc": "En Twilio, configura el webhook de mensajes entrantes del Messaging Service (o del número) con la primera URL, método POST.",
+      "inboundUrl": "Mensajes entrantes",
+      "statusUrl": "Estado de entrega",
+      "statusUrlHint": "La URL de estado se envía automáticamente con cada mensaje; no hace falta configurarla en Twilio.",
+      "enabled": "SMS activado",
+      "enabledHint": "Si está desactivado, no se envía nada. Los mensajes entrantes y las solicitudes STOP se siguen registrando.",
+      "verifiedAt": "Verificado con Twilio el {date, date, medium}",
+      "disconnect": "Desconectar",
+      "saveAndVerify": "Verificar y guardar"
     }
   },
   "SignupPage": {
@@ -2915,7 +3095,8 @@
       "recipientsRequired": "Proporciona `recipients` (preferido) o `phone_numbers`; debe ser una lista no vacía",
       "templateNameRequired": "El nombre de la plantilla es obligatorio",
       "templateMalformed": "El registro local de la plantilla está dañado: usa \"Sincronizar desde Meta\" en Configuración para repararlo antes de enviar la difusión.",
-      "invalidPhoneFormat": "Formato de número de teléfono no válido"
+      "invalidPhoneFormat": "Formato de número de teléfono no válido",
+      "smsNotResumable": "Las difusiones por SMS se entregan automáticamente y no se pueden reanudar aquí."
     },
     "whatsappConfig": {
       "fetchFailed": "Error al obtener la configuración",
@@ -2982,6 +3163,38 @@
       "submitFailed": "Error al enviar la plantilla.",
       "metaApiStatus": "Error de la API de Meta: {status}",
       "syncFailed": "Error al sincronizar las plantillas"
+    },
+    "sms": {
+      "notConfigured": "El SMS no está configurado en este espacio de trabajo. Un administrador puede conectar un proveedor en Configuración → SMS.",
+      "optedOut": "Este contacto se dio de baja de los SMS.",
+      "invalidPhone": "Este contacto no tiene un número de teléfono válido para SMS.",
+      "providerError": "El proveedor de SMS rechazó el mensaje: {reason}",
+      "sentNotSaved": "El SMS se envió, pero no se pudo guardar en la conversación.",
+      "textRequired": "El texto del mensaje es obligatorio.",
+      "textTooLong": "Los SMS tienen un límite de {max} caracteres.",
+      "accountSidInvalid": "Ingresa un Account SID de Twilio válido (empieza con AC).",
+      "authTokenRequired": "Ingresa el Auth Token de Twilio.",
+      "senderRequired": "Ingresa un Messaging Service SID o un número remitente.",
+      "messagingServiceInvalid": "Ingresa un Messaging Service SID válido (empieza con MG).",
+      "fromNumberInvalid": "Ingresa el número remitente en formato internacional, p. ej. +14155550123.",
+      "timezoneInvalid": "Elige una zona horaria válida.",
+      "quietHoursInvalid": "Las horas de silencio deben ser horas enteras entre 0 y 23.",
+      "costInvalid": "El costo por segmento debe ser un número entre 0 y 10.",
+      "verifyFailed": "Twilio rechazó esta configuración: {reason}",
+      "senderInUse": "Este remitente ya está conectado a otro espacio de trabajo.",
+      "saveFailed": "No se pudo guardar la configuración de SMS.",
+      "credentialsUnreadable": "Las credenciales de SMS guardadas ya no se pueden descifrar. Vuelve a ingresar el Auth Token.",
+      "audienceInvalid": "Elige una audiencia.",
+      "bodyRequired": "Primero escribe el mensaje.",
+      "nameRequired": "Ponle un nombre a la difusión.",
+      "unknownTags": "Etiquetas de combinación desconocidas: {tags}",
+      "noEligibleRecipients": "Ningún contacto de esta audiencia tiene consentimiento para SMS.",
+      "tooManyRecipients": "Una difusión por SMS tiene un límite de {max} destinatarios.",
+      "createFailed": "No se pudo crear la difusión por SMS.",
+      "contactIdsRequired": "Elige al menos un contacto.",
+      "tooManyContacts": "Actualiza como máximo {max} contactos a la vez.",
+      "consentActionInvalid": "La acción debe ser opt_in u opt_out.",
+      "consentSourceInvalid": "Elige cómo dio su consentimiento el contacto."
     }
   }
 }

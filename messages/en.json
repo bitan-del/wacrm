@@ -457,7 +457,9 @@
       "downloadFailed": "Couldn't download the attachment",
       "viewImage": "View image",
       "expandVideo": "Expand video",
-      "imageAlt": "Shared image"
+      "imageAlt": "Shared image",
+      "smsBadge": "SMS",
+      "smsBadgeTitle": "Sent or received as SMS"
     },
     "mediaViewer": {
       "counter": "{index} of {total}",
@@ -534,6 +536,15 @@
       "resumed": "AI resumed.",
       "updateError": "Couldn’t update the AI assistant.",
       "networkError": "Couldn’t reach the server."
+    },
+    "smsComposer": {
+      "channelLabel": "Reply channel",
+      "channelWhatsapp": "WhatsApp",
+      "channelSms": "SMS",
+      "optedOutHint": "This contact opted out of SMS (they texted STOP). They must text START before you can text them again.",
+      "placeholder": "Type an SMS…",
+      "optedOutPlaceholder": "SMS unavailable — contact opted out",
+      "segmentCounter": "{segments, plural, one {# segment} other {# segments}} · {encoding} · {remaining} left"
     }
   },
   "Contacts": {
@@ -754,6 +765,46 @@
       "toastRenameFailed": "Could not rename field.",
       "toastDeleteFailed": "Could not delete field.",
       "toastDeleted": "Deleted \"{name}\"."
+    },
+    "smsConsent": {
+      "title": "SMS consent",
+      "statusOptedIn": "Opted in",
+      "statusOptedOut": "Opted out",
+      "statusNone": "No consent",
+      "optedInDetail": "Opted in {date} via {source}.",
+      "optedOutDetail": "Opted out {date} via {source}.",
+      "noneDetail": "No SMS consent recorded. This contact won't receive SMS broadcasts.",
+      "sourceLabel": "Consent source",
+      "inSources": {
+        "keyword": "START keyword",
+        "web_form": "Web form",
+        "paper_form": "Paper form",
+        "verbal": "Verbal (recorded)",
+        "import": "Import",
+        "api": "API",
+        "manual": "Manual",
+        "other": "Other"
+      },
+      "outSources": {
+        "keyword": "STOP reply",
+        "provider": "carrier / provider",
+        "manual": "manual update",
+        "api": "API",
+        "other": "other"
+      },
+      "recordOptIn": "Record opt-in",
+      "optInAttestation": "Only record an opt-in if you have the contact's express written consent to receive marketing texts from you.",
+      "markOptedOut": "Mark as opted out",
+      "reoptInBlocked": "This contact opted out by text. They need to text START to opt back in.",
+      "optedInToast": "SMS opt-in recorded.",
+      "optedOutToast": "Contact marked as opted out of SMS.",
+      "saveFailed": "Could not update SMS consent.",
+      "timezoneLabel": "Timezone (for quiet hours)",
+      "timezonePlaceholder": "e.g. America/Chicago",
+      "timezoneHint": "Leave empty to use the workspace default.",
+      "timezoneInvalid": "Enter a valid timezone such as America/Chicago.",
+      "timezoneSaved": "Timezone saved.",
+      "save": "Save"
     }
   },
   "Pipelines": {
@@ -959,7 +1010,12 @@
       "toastResumeStartedCapped": "Sending {count} recipients in the background. {remaining} more will need another run.",
       "toastResumeFailed": "Could not resume: {error}",
       "unknownError": "Unknown error",
-      "unknownContact": "Unknown"
+      "unknownContact": "Unknown",
+      "smsBadge": "SMS",
+      "smsQueuedTitle": "{count, plural, one {# message} other {# messages}} still to send",
+      "smsQueuedQuietHours": "{count, plural, one {# is} other {# are}} held for quiet hours; the next goes out {date, date, medium} {date, time, short}.",
+      "smsQueuedHint": "Sending in the background. This page updates as messages go out.",
+      "smsScheduledFor": "Scheduled {date, date, short} {date, time, short}"
     },
     "new": {
       "title": "New Broadcast",
@@ -977,7 +1033,18 @@
       "toastDraftSaved": "Draft saved",
       "broadcastFailed": "Broadcast failed",
       "toastSendTakenOver": "Another delivery took over this broadcast, so this tab stopped sending. Open the broadcast to follow its progress.",
-      "toastSendInterrupted": "Sending stopped because the connection to the server dropped. Open the broadcast and select Resume sending to reach the remaining recipients. The button appears within 5 minutes."
+      "toastSendInterrupted": "Sending stopped because the connection to the server dropped. Open the broadcast and select Resume sending to reach the remaining recipients. The button appears within 5 minutes.",
+      "smsSteps": {
+        "message": "Message",
+        "review": "Review"
+      },
+      "channel": {
+        "whatsapp": "WhatsApp",
+        "whatsappDesc": "Approved templates via the WhatsApp Business API.",
+        "sms": "SMS",
+        "smsDesc": "Text messages to contacts with SMS consent. Use this for US promotions."
+      },
+      "toastSmsQueued": "SMS broadcast started for {count, plural, one {# recipient} other {# recipients}}."
     },
     "wizard": {
       "next": "Next",
@@ -1105,6 +1172,48 @@
       "apiRequestFailed": "Broadcast API request failed",
       "noPhoneOnContact": "No phone number on contact",
       "unknownError": "Unknown error"
+    },
+    "sms": {
+      "audienceConsentNote": "SMS goes only to contacts who opted in to SMS and haven't opted out. Uploaded CSV numbers are matched to existing contacts; new numbers are skipped because they have no recorded consent.",
+      "composeTitle": "Write your SMS",
+      "composeSubtitle": "Keep it short: one segment is 160 characters, or 70 if the text uses emoji or special characters.",
+      "composePlaceholder": "Hi, our spring sale starts today: 20% off everything in store and online.",
+      "insertTag": "Insert:",
+      "fallbackHint": "Add a fallback for empty values with a pipe, e.g. {example}",
+      "unknownTags": "Unknown merge tags: {tags}",
+      "prefixBrand": "Start the message with “{brand}:” (carriers require the sender to be identified)",
+      "prefixBrandMissing": "Start with your brand name — set a brand name in Settings → SMS first",
+      "appendOptOut": "Add “Reply STOP to opt out.” if the message doesn't already explain how to opt out",
+      "optOutWarning": "Marketing texts must tell people how to opt out. Only turn this off if your message already does.",
+      "previewLabel": "Preview with a sample contact",
+      "previewEmpty": "Your message will appear here.",
+      "segmentCounter": "{segments, plural, one {# segment} other {# segments}} · {encoding} · {units} characters · {remaining} left in this segment",
+      "unicodeWarning": "These characters switch the message to Unicode (70 per segment): {chars}",
+      "tooLong": "SMS messages are limited to {max} characters.",
+      "back": "Back",
+      "next": "Next",
+      "reviewTitle": "Review and send",
+      "reviewSubtitle": "Check who will receive it, what it costs, and when it goes out.",
+      "broadcastName": "Broadcast name",
+      "broadcastNamePlaceholder": "e.g. Spring sale — US",
+      "previewFailed": "Could not calculate the audience.",
+      "previewLoading": "Checking consent and calculating segments…",
+      "recipients": "Recipients",
+      "segments": "Segments",
+      "estimatedCost": "Estimated cost",
+      "encoding": "Encoding",
+      "encodingValue": "{encoding}, up to {segments} per message",
+      "costFootnote": "Estimate at {rate} per segment. Your provider bills carrier fees on top.",
+      "excludedTitle": "Not everyone in this audience of {total} will receive it",
+      "excludedNoConsent": "{count, plural, one {# contact has} other {# contacts have}} no SMS consent",
+      "excludedOptedOut": "{count, plural, one {# contact has} other {# contacts have}} opted out",
+      "excludedInvalidPhone": "{count, plural, one {# contact has} other {# contacts have}} no valid phone number",
+      "deferredNote": "{count, plural, one {# recipient is} other {# recipients are}} in quiet hours ({start}:00–{end}:00 local time) and will be sent automatically when their morning starts.",
+      "sampleLabel": "Sample message",
+      "sendNow": "Send SMS",
+      "confirmTitle": "Send this SMS broadcast?",
+      "confirmDesc": "{count, plural, one {# recipient} other {# recipients}} will be texted. Estimated cost: {cost}. Text messages can't be recalled.",
+      "cancel": "Cancel"
     }
   },
   "Automations": {
@@ -1974,7 +2083,8 @@
       "deals": "Deals & currency",
       "inbox": "Inbox",
       "members": "Team members",
-      "api": "API keys"
+      "api": "API keys",
+      "sms": "SMS"
     },
     "groups": {
       "account": "Account",
@@ -2258,6 +2368,76 @@
       "textPlaceholder": "The message text to insert",
       "cancel": "Cancel",
       "save": "Save"
+    },
+    "smsConfig": {
+      "title": "SMS",
+      "description": "Send and receive SMS alongside WhatsApp — the route for US promotional messages now that Meta has paused marketing templates to +1 numbers. Connect your own Twilio account.",
+      "loadFailed": "Could not load the SMS settings.",
+      "missingToken": "Enter the Twilio Auth Token.",
+      "saveFailed": "Could not save the SMS settings.",
+      "saveSuccess": "SMS settings verified with Twilio and saved.",
+      "removeConfirm": "Disconnect SMS for this workspace? Sending stops immediately; queued broadcast messages will fail.",
+      "removeFailed": "Could not disconnect SMS.",
+      "removeSuccess": "SMS disconnected.",
+      "copied": "Copied.",
+      "copyFailed": "Could not copy.",
+      "adminOnly": "Only admins can view or change the SMS connection.",
+      "complianceTitle": "Before you send to US numbers",
+      "complianceRegistration": "Carriers block unregistered business texting. Register your own A2P 10DLC brand and campaign (or verify your toll-free number) in Twilio and attach your number to it. Each workspace needs its own registration.",
+      "complianceConsent": "Only text people who gave express written consent to receive your messages. Broadcasts go only to contacts with a recorded SMS opt-in; STOP and similar replies opt people out automatically.",
+      "complianceQuietHours": "Marketing texts are held outside the quiet hours below, in each recipient's local time.",
+      "providerTitle": "Provider account",
+      "providerDesc": "Your Auth Token is verified with Twilio and stored encrypted. It is never shown again.",
+      "provider": "Provider",
+      "accountSid": "Account SID",
+      "authToken": "Auth Token",
+      "hideToken": "Hide token",
+      "showToken": "Show token",
+      "authTokenHint": "Twilio Console → Account info. It also verifies that incoming webhooks really come from Twilio.",
+      "messagingServiceSid": "Messaging Service SID",
+      "messagingServiceHint": "Recommended. The A2P 10DLC campaign is attached to the Messaging Service.",
+      "fromNumber": "From number",
+      "fromNumberHint": "Used when no Messaging Service is set, e.g. a verified toll-free number.",
+      "registrationTitle": "Registration and compliance replies",
+      "registrationDesc": "Record which carrier registration this sender uses, and what people get back when they text HELP.",
+      "registrationType": "Registration type",
+      "registrationTypes": {
+        "none": "Not recorded",
+        "10dlc": "A2P 10DLC (local number)",
+        "toll_free": "Toll-free verification",
+        "short_code": "Short code",
+        "other": "Other"
+      },
+      "registrationReference": "Campaign or verification ID",
+      "registrationReferencePlaceholder": "e.g. CM… or the toll-free verification SID",
+      "brandName": "Brand name",
+      "brandNamePlaceholder": "e.g. Acme Store",
+      "brandNameHint": "Carriers require messages to identify the sender. Broadcasts can start with this name.",
+      "helpReply": "HELP reply",
+      "helpReplyPlaceholder": "Brand: Reply STOP to unsubscribe. Msg & data rates may apply.",
+      "helpReplyHint": "Sent automatically when someone texts HELP or INFO. Leave empty to use the default shown.",
+      "optOutReply": "STOP confirmation",
+      "optInReply": "START confirmation",
+      "confirmationsHint": "Twilio already confirms STOP and START itself, so these are only sent by providers that don't.",
+      "sendingTitle": "Quiet hours and pricing",
+      "sendingDesc": "Broadcast messages are never sent during quiet hours in the recipient's local time. Contacts without a timezone use the default below.",
+      "defaultTimezone": "Default timezone",
+      "quietStart": "Quiet hours start (hour)",
+      "quietEnd": "Quiet hours end (hour)",
+      "quietHoursHint": "Default 21 → 8 (no sends from 9pm to 8am). Some states are stricter — narrow the window if your audience needs it.",
+      "costPerSegment": "Cost per segment",
+      "currency": "Currency",
+      "costHint": "Used only for the estimate in the broadcast wizard. Carrier fees are billed on top by your provider.",
+      "webhooksTitle": "Webhooks",
+      "webhooksDesc": "In Twilio, set the Messaging Service (or phone number) incoming-message webhook to the first URL, method POST.",
+      "inboundUrl": "Incoming messages",
+      "statusUrl": "Delivery status",
+      "statusUrlHint": "The status URL is sent with every message automatically — no need to configure it in Twilio.",
+      "enabled": "SMS enabled",
+      "enabledHint": "When off, nothing is sent. Incoming texts and STOP requests are still recorded.",
+      "verifiedAt": "Verified with Twilio {date, date, medium}",
+      "disconnect": "Disconnect",
+      "saveAndVerify": "Verify and save"
     }
   },
   "SignupPage": {
@@ -2915,7 +3095,8 @@
       "recipientsRequired": "Provide either `recipients` (preferred) or `phone_numbers` — must be a non-empty array",
       "templateNameRequired": "template_name is required",
       "templateMalformed": "Template row is malformed locally — run \"Sync from Meta\" in Settings to repair it before broadcasting.",
-      "invalidPhoneFormat": "Invalid phone number format"
+      "invalidPhoneFormat": "Invalid phone number format",
+      "smsNotResumable": "SMS broadcasts are delivered automatically and can't be resumed here."
     },
     "whatsappConfig": {
       "fetchFailed": "Failed to fetch configuration",
@@ -2982,6 +3163,38 @@
       "submitFailed": "Failed to submit template.",
       "metaApiStatus": "Meta API error: {status}",
       "syncFailed": "Failed to sync templates"
+    },
+    "sms": {
+      "notConfigured": "SMS is not set up for this workspace. An admin can connect a provider in Settings → SMS.",
+      "optedOut": "This contact has opted out of SMS.",
+      "invalidPhone": "This contact has no valid phone number for SMS.",
+      "providerError": "The SMS provider rejected the message: {reason}",
+      "sentNotSaved": "The SMS was sent but could not be saved to the conversation.",
+      "textRequired": "Message text is required.",
+      "textTooLong": "SMS messages are limited to {max} characters.",
+      "accountSidInvalid": "Enter a valid Twilio Account SID (it starts with AC).",
+      "authTokenRequired": "Enter the Twilio Auth Token.",
+      "senderRequired": "Enter a Messaging Service SID or a From number.",
+      "messagingServiceInvalid": "Enter a valid Messaging Service SID (it starts with MG).",
+      "fromNumberInvalid": "Enter the From number in international format, e.g. +14155550123.",
+      "timezoneInvalid": "Choose a valid timezone.",
+      "quietHoursInvalid": "Quiet hours must be whole hours between 0 and 23.",
+      "costInvalid": "Cost per segment must be a number between 0 and 10.",
+      "verifyFailed": "Twilio rejected these settings: {reason}",
+      "senderInUse": "This sender is already connected to another workspace.",
+      "saveFailed": "Could not save the SMS settings.",
+      "credentialsUnreadable": "The stored SMS credentials can no longer be decrypted. Re-enter the Auth Token.",
+      "audienceInvalid": "Choose an audience.",
+      "bodyRequired": "Write the message first.",
+      "nameRequired": "Give the broadcast a name.",
+      "unknownTags": "Unknown merge tags: {tags}",
+      "noEligibleRecipients": "No contacts in this audience have SMS consent.",
+      "tooManyRecipients": "An SMS broadcast is limited to {max} recipients.",
+      "createFailed": "Could not create the SMS broadcast.",
+      "contactIdsRequired": "Choose at least one contact.",
+      "tooManyContacts": "Update at most {max} contacts at a time.",
+      "consentActionInvalid": "Action must be opt_in or opt_out.",
+      "consentSourceInvalid": "Choose how the contact gave consent."
     }
   }
 }

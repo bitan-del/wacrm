@@ -42,6 +42,8 @@ interface Step2Props {
   onUpdate: (audience: AudienceConfig) => void;
   onNext: () => void;
   onBack: () => void;
+  /** SMS audiences are consent-filtered server-side; say so up front. */
+  channel?: 'whatsapp' | 'sms';
 }
 
 export function Step2SelectAudience({
@@ -49,8 +51,10 @@ export function Step2SelectAudience({
   onUpdate,
   onNext,
   onBack,
+  channel = 'whatsapp',
 }: Step2Props) {
   const t = useTranslations('Broadcasts.wizard');
+  const tSms = useTranslations('Broadcasts.sms');
 
   const OPERATOR_OPTIONS = useMemo<{ value: CustomFieldOperator; label: string }[]>(() => [
     { value: 'is', label: t('selectAudience.operatorIs') },
@@ -247,6 +251,11 @@ export function Step2SelectAudience({
         <p className="mt-1 text-sm text-muted-foreground">
           {t('selectAudience.subtitle')}
         </p>
+        {channel === 'sms' && (
+          <p className="mt-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+            {tSms('audienceConsentNote')}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

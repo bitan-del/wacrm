@@ -163,6 +163,41 @@ BEGIN
     RAISE EXCEPTION 'anon can execute dashboard_overview — migration 059 grants are wrong';
   END IF;
 
+  -- 063: the SMS channel. The channel columns are read by untyped
+  -- PostgREST selects, and the consent trigger is the only audit trail
+  -- of STOP / START, so a silent no-op here is a compliance gap.
+  IF to_regclass('public.sms_config') IS NULL
+     OR to_regclass('public.sms_consent_events') IS NULL THEN
+    RAISE EXCEPTION 'sms_config / sms_consent_events are missing — migration 063 did not apply';
+  END IF;
+  IF (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND ((table_name = 'messages' AND column_name = 'channel')
+        OR (table_name = 'broadcasts' AND column_name IN ('channel', 'sms_body'))
+        OR (table_name = 'broadcast_recipients'
+            AND column_name IN ('sms_message_id', 'sms_body', 'scheduled_for', 'claimed_at'))
+        OR (table_name = 'contacts'
+            AND column_name IN ('sms_opted_in_at', 'sms_opted_out_at', 'timezone')))
+  ) <> 10 THEN
+    RAISE EXCEPTION 'SMS channel columns are missing — migration 063 did not apply';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'contacts_log_sms_consent') THEN
+    RAISE EXCEPTION 'contacts_log_sms_consent trigger is missing — migration 063 did not apply';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM unnest(ARRAY[
+      'public.claim_sms_broadcast_recipients(integer,integer,uuid)',
+      'public.create_sms_broadcast_with_recipients(uuid,uuid,text,text,jsonb,uuid[],text[],smallint[],timestamptz[])'
+    ]::regprocedure[]) AS f(fn)
+    WHERE has_function_privilege('anon', f.fn, 'EXECUTE')
+       OR has_function_privilege('authenticated', f.fn, 'EXECUTE')
+       OR NOT has_function_privilege('service_role', f.fn, 'EXECUTE')
+  ) THEN
+    RAISE EXCEPTION 'an SMS SECURITY DEFINER function is executable by anon/authenticated — migration 063 grants are wrong';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

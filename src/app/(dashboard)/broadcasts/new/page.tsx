@@ -11,14 +11,28 @@ import { Step2SelectAudience } from '@/components/broadcasts/step2-select-audien
 import { Step3Personalize } from '@/components/broadcasts/step3-personalize';
 import { Step4ScheduleSend } from '@/components/broadcasts/step4-schedule-send';
 import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
-import { Check } from 'lucide-react';
+import { useSmsStatus } from '@/hooks/use-sms-status';
+import { SmsComposeStep, type SmsComposeValue } from '@/components/broadcasts/sms-compose-step';
+import { SmsReviewStep, smsRequestBody } from '@/components/broadcasts/sms-review-step';
+import { Check, MessageCircle, MessageSquareText } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { cn } from '@/lib/utils';
 
-const steps = [
-  { label: 'template', key: 'template' },
-  { label: 'audience', key: 'audience' },
-  { label: 'personalize', key: 'personalize' },
-  { label: 'send', key: 'send' },
+type Channel = 'whatsapp' | 'sms';
+
+const WHATSAPP_STEPS = [
+  { label: 'steps.template', key: 'template' },
+  { label: 'steps.audience', key: 'audience' },
+  { label: 'steps.personalize', key: 'personalize' },
+  { label: 'steps.send', key: 'send' },
+] as const;
+
+// SMS has no Meta template and no per-variable mapping step: merge tags
+// are typed inline, so the wizard is three steps.
+const SMS_STEPS = [
+  { label: 'smsSteps.message', key: 'message' },
+  { label: 'steps.audience', key: 'audience' },
+  { label: 'smsSteps.review', key: 'review' },
 ] as const;
 
 export default function NewBroadcastPage() {
@@ -26,7 +40,15 @@ export default function NewBroadcastPage() {
   const t = useTranslations('Broadcasts.new');
   const { accountId } = useAuth();
   const { createAndSendBroadcast, isProcessing, progress } = useBroadcastSending();
+  const smsStatus = useSmsStatus();
 
+  const [channel, setChannel] = useState<Channel>('whatsapp');
+  const [smsCompose, setSmsCompose] = useState<SmsComposeValue>({
+    body: '',
+    prefixBrand: true,
+    appendOptOut: true,
+  });
+  const [smsSending, setSmsSending] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [template, setTemplate] = useState<MessageTemplate | null>(null);
   const [audience, setAudience] = useState<{
@@ -45,6 +67,37 @@ export default function NewBroadcastPage() {
   >({});
   const [headerMediaUrl, setHeaderMediaUrl] = useState('');
   const [name, setName] = useState('');
+
+  const steps = channel === 'sms' ? SMS_STEPS : WHATSAPP_STEPS;
+  const busy = isProcessing || smsSending;
+
+  function switchChannel(next: Channel) {
+    if (next === channel) return;
+    setChannel(next);
+    setCurrentStep(0);
+  }
+
+  async function handleSendSms() {
+    setSmsSending(true);
+    try {
+      const res = await fetch('/api/sms/broadcasts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), ...smsRequestBody(smsCompose, audience) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? t('broadcastFailed'));
+        return;
+      }
+      toast.success(t('toastSmsQueued', { count: data.eligible ?? 0 }));
+      router.push(`/broadcasts/${data.broadcast_id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('broadcastFailed'));
+    } finally {
+      setSmsSending(false);
+    }
+  }
 
   async function handleSend() {
     if (!template) return;
@@ -141,6 +194,37 @@ export default function NewBroadcastPage() {
         </p>
       </div>
 
+      {/* Channel. Only offered when SMS is connected and switched on. */}
+      {smsStatus.enabled && (
+        <div className="grid grid-cols-2 gap-3">
+          {(
+            [
+              { id: 'whatsapp', icon: MessageCircle },
+              { id: 'sms', icon: MessageSquareText },
+            ] as const
+          ).map(({ id, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              disabled={busy}
+              onClick={() => switchChannel(id)}
+              className={cn(
+                'flex items-start gap-3 rounded-xl border p-3 text-left transition-colors',
+                channel === id
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border bg-card/50 hover:border-primary/40',
+              )}
+            >
+              <Icon className={cn('mt-0.5 h-4 w-4', channel === id ? 'text-primary' : 'text-muted-foreground')} />
+              <span>
+                <span className="block text-sm font-medium text-foreground">{t(`channel.${id}`)}</span>
+                <span className="block text-xs text-muted-foreground">{t(`channel.${id}Desc`)}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Step Indicator */}
       <div className="flex items-center justify-between">
         {steps.map((step, index) => {
@@ -166,7 +250,7 @@ export default function NewBroadcastPage() {
                     isActive ? 'text-foreground' : isCompleted ? 'text-primary' : 'text-muted-foreground'
                   }`}
                 >
-                  {t(`steps.${step.label}`)}
+                  {t(step.label)}
                 </span>
               </div>
               {index < steps.length - 1 && (
@@ -186,11 +270,40 @@ export default function NewBroadcastPage() {
         <div
           className="transition-all duration-300 ease-in-out"
           style={{
-            opacity: isProcessing ? 0.6 : 1,
-            pointerEvents: isProcessing ? 'none' : 'auto',
+            opacity: busy ? 0.6 : 1,
+            pointerEvents: busy ? 'none' : 'auto',
           }}
         >
-          {currentStep === 0 && (
+          {channel === 'sms' && currentStep === 0 && (
+            <SmsComposeStep
+              value={smsCompose}
+              onChange={setSmsCompose}
+              brandName={smsStatus.brandName}
+              onNext={() => setCurrentStep(1)}
+              onBack={() => router.push('/broadcasts')}
+            />
+          )}
+          {channel === 'sms' && currentStep === 1 && (
+            <Step2SelectAudience
+              audience={audience}
+              onUpdate={setAudience}
+              onNext={() => setCurrentStep(2)}
+              onBack={() => setCurrentStep(0)}
+              channel="sms"
+            />
+          )}
+          {channel === 'sms' && currentStep === 2 && (
+            <SmsReviewStep
+              name={name}
+              onNameChange={setName}
+              compose={smsCompose}
+              audience={audience}
+              onSend={handleSendSms}
+              onBack={() => setCurrentStep(1)}
+              isSending={smsSending}
+            />
+          )}
+          {channel === 'whatsapp' && currentStep === 0 && (
             <Step1ChooseTemplate
               selectedTemplate={template}
               onSelect={setTemplate}
@@ -198,7 +311,7 @@ export default function NewBroadcastPage() {
               onBack={() => router.push('/broadcasts')}
             />
           )}
-          {currentStep === 1 && (
+          {channel === 'whatsapp' && currentStep === 1 && (
             <Step2SelectAudience
               audience={audience}
               onUpdate={setAudience}
@@ -206,7 +319,7 @@ export default function NewBroadcastPage() {
               onBack={() => setCurrentStep(0)}
             />
           )}
-          {currentStep === 2 && template && (
+          {channel === 'whatsapp' && currentStep === 2 && template && (
             <Step3Personalize
               template={template}
               variables={variables}
@@ -217,7 +330,7 @@ export default function NewBroadcastPage() {
               onBack={() => setCurrentStep(1)}
             />
           )}
-          {currentStep === 3 && template && (
+          {channel === 'whatsapp' && currentStep === 3 && template && (
             <Step4ScheduleSend
               name={name}
               onNameChange={setName}

@@ -436,6 +436,21 @@ export function MessageBubble({
               {t("aiBadge")}
             </span>
           )}
+          {/* Channel badge — SMS shares the thread with WhatsApp, so mark
+              which messages travelled over SMS (migration 063). */}
+          {message.channel === "sms" && (
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full px-1.5 py-px text-[9px] font-semibold uppercase leading-none tracking-wide",
+                isAgent
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-foreground/10 text-muted-foreground",
+              )}
+              title={t("smsBadgeTitle")}
+            >
+              {t("smsBadge")}
+            </span>
+          )}
           <span
             className={cn(
               "text-[10px]",

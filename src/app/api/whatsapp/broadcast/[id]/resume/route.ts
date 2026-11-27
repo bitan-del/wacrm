@@ -68,6 +68,19 @@ export async function POST(
       ? body.scope
       : 'pending';
 
+    // SMS broadcasts (migration 063) are delivered by /api/sms/cron with
+    // their own consent + quiet-hours checks. Running one through this
+    // WhatsApp path would try to send a template named '' over Meta.
+    const { data: target } = await supabase
+      .from('broadcasts')
+      .select('channel')
+      .eq('id', id)
+      .eq('account_id', accountId)
+      .maybeSingle()
+    if (target?.channel === 'sms') {
+      return NextResponse.json({ error: t('broadcast.smsNotResumable') }, { status: 409 })
+    }
+
     // Claim BEFORE planning. Two clicks on Resume, or a click while an
     // earlier pass is still running, would otherwise both build a plan
     // from the same 'pending' rows and message everyone twice — and a

@@ -124,7 +124,34 @@ export interface Contact {
   /** Hydrated by queries that embed `contact_tags(tags(*))` (e.g. the
    *  Inbox conversation list, for tag filtering). Absent otherwise. */
   tags?: Tag[];
+  /** SMS consent (migration 063). A contact is a valid SMS broadcast
+   *  target only when opted in AND not opted out — see
+   *  `@/lib/sms/consent`. Written through `apply_sms_consent`. */
+  sms_opted_in_at?: string | null;
+  sms_opt_in_source?: SmsOptInSource | null;
+  sms_opted_out_at?: string | null;
+  sms_opt_out_source?: SmsOptOutSource | null;
+  /** IANA timezone (e.g. "America/Chicago") used for SMS quiet hours.
+   *  Null → the account's SMS default timezone. */
+  timezone?: string | null;
 }
+
+/** How a contact gave SMS consent (migration 063 CHECK). */
+export type SmsOptInSource =
+  | 'keyword'
+  | 'web_form'
+  | 'paper_form'
+  | 'verbal'
+  | 'import'
+  | 'api'
+  | 'manual'
+  | 'other';
+
+/** How a contact's SMS consent was revoked (migration 063 CHECK). */
+export type SmsOptOutSource = 'keyword' | 'provider' | 'manual' | 'api' | 'other';
+
+/** The channel a message or broadcast travelled on (migration 063). */
+export type MessageChannel = 'whatsapp' | 'sms';
 
 export interface Tag {
   id: string;
@@ -280,6 +307,10 @@ export interface Message {
   error_code?: number | null;
   error_title?: string | null;
   error_details?: string | null;
+  /** Channel the message travelled on. Absent/`whatsapp` on every row
+   *  written before migration 063. For `sms`, `message_id` holds the
+   *  provider's message id (Twilio `SM…` SID). */
+  channel?: MessageChannel;
 }
 
 export type ReactionActor = 'customer' | 'agent';
@@ -439,6 +470,11 @@ export interface Broadcast {
    */
   delivery_locked_at?: string | null;
   delivery_lease_until?: string | null;
+  /** Migration 063. `template_name` is '' for SMS broadcasts. */
+  channel?: MessageChannel;
+  /** SMS broadcasts only: the message as composed, before per-contact
+   *  personalization. */
+  sms_body?: string | null;
   created_at: string;
 }
 
@@ -470,6 +506,14 @@ export interface BroadcastRecipient {
    * Added in migration 038; null on rows created before it.
    */
   template_params?: string[] | null;
+  /** SMS recipients (migration 063): provider message id, the rendered
+   *  body frozen at plan time, its segment count, and the earliest time
+   *  it may go out (quiet hours). */
+  sms_message_id?: string | null;
+  sms_body?: string | null;
+  sms_segments?: number | null;
+  scheduled_for?: string | null;
+  claimed_at?: string | null;
   created_at: string;
   contact?: Contact;
 }

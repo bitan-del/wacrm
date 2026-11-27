@@ -9,6 +9,35 @@ Versions follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Pre-1.0, `MINOR` bumps cover new modules; `PATCH` bumps cover bug fixes
 and polish.
 
+## [Unreleased]
+
+Adds SMS as a second channel next to WhatsApp — the route for US
+promotional bulk messaging now that Meta has paused marketing templates
+to +1 numbers. Twilio is the first provider; each workspace connects its
+own account and carrier registration. Setup: `docs/sms.md`.
+
+> **Migration required:** apply `supabase/migrations/063_sms_channel.sql`
+> (SMS provider config, contact consent columns + audit trail, channel
+> columns on messages / broadcasts / recipients, delivery RPCs). For SMS
+> broadcasts also set `NEXT_PUBLIC_SITE_URL` and `SMS_CRON_SECRET` and
+> ping `GET /api/sms/cron` every few minutes.
+
+### Added
+
+- **Settings → SMS** (admins): Twilio credentials (verified, stored
+  encrypted), sender, brand, HELP reply, quiet hours, cost per segment,
+  and the webhook URLs to paste into Twilio.
+- **SMS consent on contacts**: opt-in / opt-out with source and time,
+  an append-only consent audit log, automatic opt-out on STOP /
+  UNSUBSCRIBE / CANCEL / END / QUIT / STOPALL (and REVOKE / OPT OUT),
+  re-opt-in on START / UNSTOP, HELP auto-reply.
+- **SMS broadcasts**: channel picker in the wizard; only consented
+  contacts are targeted; segment count and cost estimate before sending;
+  no sends 21:00–08:00 in the recipient's local time; per-recipient
+  delivery status from Twilio callbacks.
+- **Inbox**: inbound SMS lands in the contact's conversation with an
+  "SMS" badge; agents can reply by SMS from the composer.
+
 ## [0.8.1] — 2026-07-10
 
 Fixes inbound chats fragmenting into multiple threads for the same

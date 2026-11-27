@@ -333,10 +333,28 @@ export default function BroadcastDetailPage() {
   // than leaving a permanently pulsing "sending" badge.
   const isStalled = broadcast.status === 'sending' && pendingCount > 0;
 
+  // SMS has no read receipts; its delivery runs server-side (quiet hours,
+  // cron), so the browser-driven WhatsApp resume controls don't apply.
+  const isSms = broadcast.channel === 'sms';
+  const nowMs = Date.now();
+  const smsScheduledCount = isSms
+    ? recipients.filter(
+        (r) => r.status === 'pending' && r.scheduled_for && Date.parse(r.scheduled_for) > nowMs,
+      ).length
+    : 0;
+  const nextSmsSendAt = isSms
+    ? recipients
+        .filter((r) => r.status === 'pending' && r.scheduled_for && Date.parse(r.scheduled_for) > nowMs)
+        .map((r) => Date.parse(r.scheduled_for!))
+        .sort((a, b) => a - b)[0]
+    : undefined;
+
   const funnelSteps: FunnelStep[] = [
     { label: t('stats.sent'), value: broadcast.sent_count, color: 'bg-primary' },
     { label: t('stats.delivered'), value: broadcast.delivered_count, color: 'bg-teal-500' },
-    { label: t('stats.read'), value: broadcast.read_count, color: 'bg-blue-500' },
+    ...(isSms
+      ? []
+      : [{ label: t('stats.read'), value: broadcast.read_count, color: 'bg-blue-500' }]),
     { label: t('stats.replied'), value: broadcast.replied_count, color: 'bg-indigo-500' },
   ];
 
@@ -363,7 +381,18 @@ export default function BroadcastDetailPage() {
               </span>
             </div>
             <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-              <span>{t('template', { name: broadcast.template_name })}</span>
+              {isSms ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                    {t('smsBadge')}
+                  </span>
+                  <span className="max-w-[40ch] truncate" title={broadcast.sms_body ?? ''}>
+                    {broadcast.sms_body}
+                  </span>
+                </span>
+              ) : (
+                <span>{t('template', { name: broadcast.template_name })}</span>
+              )}
               <span>-</span>
               <span>
                 {t('createdAt', { date: new Date(broadcast.created_at).toLocaleDateString() })}
@@ -418,7 +447,21 @@ export default function BroadcastDetailPage() {
 
       {/* Resume / retry (issue #472). Only rendered when there is
           actually something outstanding. */}
-      {!deliveryInFlight && (pendingCount > 0 || retryableCount > 0) && (
+      {isSms && pendingCount > 0 && (
+        <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4 text-sm">
+          <p className="font-medium text-foreground">{t('smsQueuedTitle', { count: pendingCount })}</p>
+          <p className="mt-0.5 text-muted-foreground">
+            {smsScheduledCount > 0 && nextSmsSendAt
+              ? t('smsQueuedQuietHours', {
+                  count: smsScheduledCount,
+                  date: new Date(nextSmsSendAt),
+                })
+              : t('smsQueuedHint')}
+          </p>
+        </div>
+      )}
+
+      {!isSms && !deliveryInFlight && (pendingCount > 0 || retryableCount > 0) && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
           <div className="text-sm">
             <p className="font-medium text-foreground">
@@ -466,7 +509,7 @@ export default function BroadcastDetailPage() {
       )}
 
       {/* Stats — 6 cards: Total / Sent / Delivered / Read / Replied / Failed */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 ${isSms ? 'lg:grid-cols-5' : 'lg:grid-cols-6'}`}>
         <StatCard
           label={t('stats.totalRecipients')}
           value={broadcast.total_recipients}
@@ -488,13 +531,15 @@ export default function BroadcastDetailPage() {
           icon={<CheckCheck className="h-4 w-4" />}
           color="bg-teal-500/10 text-teal-400"
         />
-        <StatCard
-          label={t('stats.read')}
-          value={broadcast.read_count}
-          total={broadcast.total_recipients}
-          icon={<Eye className="h-4 w-4" />}
-          color="bg-blue-500/10 text-blue-400"
-        />
+        {!isSms && (
+          <StatCard
+            label={t('stats.read')}
+            value={broadcast.read_count}
+            total={broadcast.total_recipients}
+            icon={<Eye className="h-4 w-4" />}
+            color="bg-blue-500/10 text-blue-400"
+          />
+        )}
         <StatCard
           label={t('stats.replied')}
           value={broadcast.replied_count}
@@ -632,7 +677,17 @@ export default function BroadcastDetailPage() {
                           : '-'}
                       </TableCell>
                       <TableCell className="max-w-xs truncate text-xs text-red-400">
-                        {recipient.error_message ?? '-'}
+                        {recipient.error_message ??
+                          (isSms &&
+                          recipient.status === 'pending' &&
+                          recipient.scheduled_for &&
+                          Date.parse(recipient.scheduled_for) > nowMs ? (
+                            <span className="text-muted-foreground">
+                              {t('smsScheduledFor', { date: new Date(recipient.scheduled_for) })}
+                            </span>
+                          ) : (
+                            '-'
+                          ))}
                       </TableCell>
                     </TableRow>
                   );
