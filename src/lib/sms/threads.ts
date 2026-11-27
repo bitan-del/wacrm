@@ -121,6 +121,10 @@ export async function persistOutboundSms(
     providerMessageId: string;
     senderType: 'agent' | 'bot';
     senderId?: string | null;
+    /** Marks the row as written by the AI auto-reply (inbox "AI" badge). */
+    aiGenerated?: boolean;
+    /** MMS: the attachment as rendered in the thread. */
+    media?: { kind: 'image' | 'video' | 'audio' | 'document'; url: string } | null;
   },
 ): Promise<string | null> {
   const { data, error } = await db
@@ -129,11 +133,13 @@ export async function persistOutboundSms(
       conversation_id: params.conversationId,
       sender_type: params.senderType,
       sender_id: params.senderId ?? null,
-      content_type: 'text',
-      content_text: params.text,
+      content_type: params.media?.kind ?? 'text',
+      content_text: params.text || null,
+      media_url: params.media?.url ?? null,
       message_id: params.providerMessageId,
       status: 'sent',
       channel: 'sms',
+      ai_generated: params.aiGenerated ?? false,
     })
     .select('id')
     .single();
@@ -149,7 +155,11 @@ export async function persistOutboundSms(
   const now = new Date().toISOString();
   await db
     .from('conversations')
-    .update({ last_message_text: params.text, last_message_at: now, updated_at: now })
+    .update({
+      last_message_text: params.text || (params.media ? `[${params.media.kind}]` : ''),
+      last_message_at: now,
+      updated_at: now,
+    })
     .eq('id', params.conversationId);
 
   return data.id as string;

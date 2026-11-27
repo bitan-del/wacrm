@@ -142,10 +142,10 @@ export function parseTwilioInbound(params: Readonly<Record<string, string>>): In
   if (!sid || !from || !to) return null;
 
   const numMedia = Math.min(Number.parseInt(params.NumMedia ?? '0', 10) || 0, 10);
-  const mediaUrls: string[] = [];
+  const media: InboundSms['media'] = [];
   for (let i = 0; i < numMedia; i++) {
     const url = str(params, `MediaUrl${i}`);
-    if (url) mediaUrls.push(url);
+    if (url) media.push({ url, contentType: str(params, `MediaContentType${i}`) });
   }
 
   return {
@@ -156,7 +156,7 @@ export function parseTwilioInbound(params: Readonly<Record<string, string>>): In
     to,
     body: params.Body ?? '',
     keywordHint: str(params, 'OptOutType'),
-    mediaUrls,
+    media,
   };
 }
 
@@ -248,6 +248,7 @@ export class TwilioSmsProvider implements SmsProvider {
       throw new SmsProviderError('No SMS sender configured', null, 400);
     }
     if (params.statusCallbackUrl) form.set('StatusCallback', params.statusCallbackUrl);
+    for (const url of params.mediaUrls ?? []) form.append('MediaUrl', url);
 
     const data = await twilioRequest(
       this.fetchImpl,
@@ -310,5 +311,27 @@ export class TwilioSmsProvider implements SmsProvider {
 
   verifyWebhookSignature(input: WebhookSignatureInput): boolean {
     return validateTwilioSignature(this.creds.authToken, input);
+  }
+
+  /**
+   * MMS media lives at api.twilio.com and may require the account's
+   * Basic auth ("HTTP Basic Authentication for media" setting). Twilio
+   * redirects to a signed CDN URL; fetch drops the Authorization header
+   * on that cross-origin hop, which is what the CDN expects.
+   */
+  async downloadMedia(url: string): Promise<{ buffer: Buffer; contentType: string }> {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' || !/(^|\.)twilio\.com$/i.test(parsed.hostname)) {
+      throw new SmsProviderError('Refusing to fetch media from a non-Twilio host', null, 400);
+    }
+    const res = await this.fetchImpl(url, {
+      headers: { Authorization: basicAuth(this.creds) },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new SmsProviderError(`Media download failed: HTTP ${res.status}`, null, res.status);
+    return {
+      buffer: Buffer.from(await res.arrayBuffer()),
+      contentType: res.headers.get('content-type') ?? 'application/octet-stream',
+    };
   }
 }

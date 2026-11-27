@@ -88,7 +88,10 @@ describe('webhook parsing', () => {
       to: PARAMS.To,
       body: 'STOP',
       keywordHint: 'STOP',
-      mediaUrls: ['https://api.twilio.com/m0', 'https://api.twilio.com/m1'],
+      media: [
+        { url: 'https://api.twilio.com/m0', contentType: null },
+        { url: 'https://api.twilio.com/m1', contentType: null },
+      ],
     });
   });
 

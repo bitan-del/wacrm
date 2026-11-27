@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseContactCsv, parseTagCell } from './parse-contact-csv';
+import { parseConsentCell, parseContactCsv, parseTagCell } from './parse-contact-csv';
 
 describe('parseTagCell', () => {
   it('splits comma-separated tags and trims whitespace', () => {
@@ -87,5 +87,32 @@ describe('parseContactCsv', () => {
         },
       ],
     });
+  });
+});
+
+describe('parseContactCsv — SMS columns', () => {
+  it('reads sms_consent and timezone when present', () => {
+    const { rows } = parseContactCsv(
+      'phone,name,sms_consent,timezone\n+14155550100,Ann,yes,America/Los_Angeles\n+14155550101,Bo,no,\n+14155550102,Cy,,\n',
+    );
+    expect(rows.map((r) => [r.smsConsent, r.timezone])).toEqual([
+      [true, 'America/Los_Angeles'],
+      [false, undefined],
+      [undefined, undefined],
+    ]);
+  });
+
+  it('leaves both undefined without the columns', () => {
+    const { rows } = parseContactCsv('phone\n+14155550100\n');
+    expect(rows[0].smsConsent).toBeUndefined();
+    expect(rows[0].timezone).toBeUndefined();
+  });
+});
+
+describe('parseConsentCell', () => {
+  it('only treats clear yes values as consent', () => {
+    for (const v of ['yes', 'Y', 'TRUE', '1', 'opt-in', 'opted in', 'x']) expect(parseConsentCell(v)).toBe(true);
+    for (const v of ['no', 'false', '0', 'opt_out']) expect(parseConsentCell(v)).toBe(false);
+    for (const v of ['', 'maybe', undefined]) expect(parseConsentCell(v)).toBeUndefined();
   });
 });

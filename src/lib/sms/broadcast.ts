@@ -34,7 +34,7 @@ import {
   smsWebhookUrls,
   type SmsConfigRow,
 } from './config';
-import { isQuietHours, nextAllowedSendTime, resolveTimeZone } from './quiet-hours';
+import { isQuietHoursInAny, nextAllowedSendTimeInAll, recipientTimeZones } from './quiet-hours';
 import { renderSmsBody } from './render';
 import { countSmsSegments, estimateSmsCost, type SmsEncoding } from './segments';
 import { TWILIO_ERROR_UNSUBSCRIBED } from './twilio';
@@ -130,7 +130,8 @@ export interface SmsBroadcastPlan {
   maxSegmentsPerMessage: number;
 }
 
-export type PlannableContact = Pick<Contact, 'id' | 'name' | 'company' | 'timezone'>;
+export type PlannableContact = Pick<Contact, 'id' | 'name' | 'company' | 'timezone'> &
+  Partial<Pick<Contact, 'phone'>>;
 
 export function planSmsBroadcast(
   contacts: readonly PlannableContact[],
@@ -151,8 +152,8 @@ export function planSmsBroadcast(
     totalSegments += info.segments;
     maxSegments = Math.max(maxSegments, info.segments);
     if (info.encoding === 'UCS-2') encoding = 'UCS-2';
-    const tz = resolveTimeZone(c.timezone, accountTz);
-    const at = nextAllowedSendTime(now, tz, window);
+    const zones = recipientTimeZones(c, accountTz);
+    const at = nextAllowedSendTimeInAll(now, zones, window);
     const isDeferred = at.getTime() !== now.getTime();
     if (isDeferred) deferred++;
     return {
@@ -385,10 +386,10 @@ export async function deliverDueSmsRecipients(
       if (!config || !provider) return markFailed(row.recipient_id, configError ?? 'SMS unavailable');
 
       const now = clock();
-      const tz = resolveTimeZone(contact.timezone, accountTimezoneOf(config));
+      const zones = recipientTimeZones(contact, accountTimezoneOf(config));
       const window = quietHoursOf(config);
-      if (isQuietHours(now, tz, window)) {
-        return reschedule(row.recipient_id, nextAllowedSendTime(now, tz, window));
+      if (isQuietHoursInAny(now, zones, window)) {
+        return reschedule(row.recipient_id, nextAllowedSendTimeInAll(now, zones, window));
       }
 
       const to = smsPhoneFor(contact.phone)!;

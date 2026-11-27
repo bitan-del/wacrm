@@ -544,7 +544,8 @@
       "optedOutHint": "Este contato cancelou o recebimento de SMS (enviou STOP). Ele precisa enviar START antes que você possa mandar SMS de novo.",
       "placeholder": "Digite um SMS…",
       "optedOutPlaceholder": "SMS indisponível — o contato cancelou",
-      "segmentCounter": "{segments, plural, one {# segmento} other {# segmentos}} · {encoding} · restam {remaining}"
+      "segmentCounter": "{segments, plural, one {# segmento} other {# segmentos}} · {encoding} · restam {remaining}",
+      "attachPhoto": "Anexar uma foto (enviada como MMS)"
     }
   },
   "Contacts": {
@@ -746,7 +747,9 @@
       "toastError": "Falha na importação",
       "notAuthenticated": "Não autenticado",
       "notLinkedToAccount": "Seu perfil não está vinculado a uma conta.",
-      "toastTagsSkippedMore": " (+{count} outros)"
+      "toastTagsSkippedMore": " (+{count} outros)",
+      "smsColumnsHint": "SMS: adicione uma coluna sms_consent (yes / no) apenas para pessoas que deram consentimento expresso por escrito para receber suas mensagens, e uma coluna opcional timezone (ex.: America/Chicago) para o horário de silêncio.",
+      "toastSmsConsent": "{count, plural, one {# contato marcado} other {# contatos marcados}} como inscritos em SMS"
     },
     "customFields": {
       "title": "Campos personalizados",
@@ -801,10 +804,17 @@
       "saveFailed": "Não foi possível atualizar o consentimento para SMS.",
       "timezoneLabel": "Fuso horário (para o horário de silêncio)",
       "timezonePlaceholder": "ex.: America/Chicago",
-      "timezoneHint": "Deixe vazio para usar o padrão do espaço de trabalho.",
+      "timezoneHint": "Deixe vazio para usar o código de área dos EUA/Canadá, ou o padrão do espaço de trabalho para outros números.",
       "timezoneInvalid": "Informe um fuso horário válido, como America/Chicago.",
       "timezoneSaved": "Fuso horário salvo.",
-      "save": "Salvar"
+      "save": "Salvar",
+      "bulkButton": "Consentimento SMS",
+      "bulkTitle": "Consentimento SMS para {count, plural, one {# contato} other {# contatos}}",
+      "bulkDesc": "Registre que estes contatos aceitaram receber SMS ou marque-os como cancelados.",
+      "bulkStopNote": "Contatos que cancelaram enviando STOP são ignorados — só o próprio START deles pode reinscrevê-los.",
+      "bulkDone": "Atualizados: {updated}; ignorados: {skipped}.",
+      "cancel": "Cancelar",
+      "apply": "Aplicar"
     }
   },
   "Pipelines": {
@@ -1015,7 +1025,8 @@
       "smsQueuedTitle": "{count, plural, one {# mensagem ainda} other {# mensagens ainda}} por enviar",
       "smsQueuedQuietHours": "{count, plural, one {# está retida} other {# estão retidas}} pelo horário de silêncio; a próxima sai em {date, date, medium} às {date, time, short}.",
       "smsQueuedHint": "Enviando em segundo plano. Esta página é atualizada à medida que as mensagens saem.",
-      "smsScheduledFor": "Agendado para {date, date, short} {date, time, short}"
+      "smsScheduledFor": "Agendado para {date, date, short} {date, time, short}",
+      "smsRetryHint": "{count, plural, one {# destinatário falhou} other {# destinatários falharam}}. A nova tentativa verifica de novo o consentimento e o horário de silêncio antes de cada envio."
     },
     "new": {
       "title": "Novo disparo",
@@ -2420,7 +2431,7 @@
       "optInReply": "Confirmação de START",
       "confirmationsHint": "A Twilio já confirma STOP e START por conta própria, então estes só são enviados por provedores que não fazem isso.",
       "sendingTitle": "Horário de silêncio e preços",
-      "sendingDesc": "Mensagens de transmissão nunca são enviadas no horário de silêncio do horário local do destinatário. Contatos sem fuso horário usam o padrão abaixo.",
+      "sendingDesc": "Mensagens de transmissão nunca são enviadas no horário de silêncio do horário local do destinatário. Contatos sem fuso horário são avaliados pelo código de área dos EUA/Canadá (todos os fusos que ele cobre); senão, pelo padrão abaixo.",
       "defaultTimezone": "Fuso horário padrão",
       "quietStart": "Início do silêncio (hora)",
       "quietEnd": "Fim do silêncio (hora)",

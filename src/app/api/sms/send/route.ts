@@ -44,10 +44,13 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null)
     const conversationId = typeof body?.conversation_id === 'string' ? body.conversation_id : ''
     const text = typeof body?.content_text === 'string' ? body.content_text : ''
+    const mediaUrl = typeof body?.media_url === 'string' && body.media_url ? body.media_url : null
     if (!conversationId) {
       return NextResponse.json({ error: t('common.conversationNotFound') }, { status: 400 })
     }
-    if (!text.trim()) return NextResponse.json({ error: t('sms.textRequired') }, { status: 400 })
+    if (!text.trim() && !mediaUrl) {
+      return NextResponse.json({ error: t('sms.textRequired') }, { status: 400 })
+    }
     if (text.length > SMS_MAX_BODY_CHARS) {
       return NextResponse.json(
         { error: t('sms.textTooLong', { max: SMS_MAX_BODY_CHARS }) },
@@ -61,6 +64,7 @@ export async function POST(request: Request) {
         text,
         senderId: userId,
         origin: resolvePublicOrigin(request),
+        mediaUrl,
       })
       return NextResponse.json({
         success: true,

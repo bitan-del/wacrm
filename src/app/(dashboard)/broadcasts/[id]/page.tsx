@@ -285,6 +285,27 @@ export default function BroadcastDetailPage() {
     }
   }
 
+  /** SMS: re-queue failed recipients; consent + quiet hours re-checked server-side. */
+  async function handleSmsRetry() {
+    setResumingScope('failed');
+    try {
+      const res = await fetch(`/api/sms/broadcasts/${broadcastId}/retry`, { method: 'POST' });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(t('toastResumeFailed', { error: payload?.error || `HTTP ${res.status}` }));
+        return;
+      }
+      toast.success(t('toastResumeStarted', { count: payload.retrying ?? 0 }));
+      await fetchData();
+    } catch (err) {
+      toast.error(
+        t('toastResumeFailed', { error: err instanceof Error ? err.message : t('unknownError') }),
+      );
+    } finally {
+      setResumingScope(null);
+    }
+  }
+
   async function handleDelete() {
     setDeleting(true);
     const supabase = createClient();
@@ -447,6 +468,26 @@ export default function BroadcastDetailPage() {
 
       {/* Resume / retry (issue #472). Only rendered when there is
           actually something outstanding. */}
+      {isSms && retryableCount > 0 && pendingCount === 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">{t('smsRetryHint', { count: retryableCount })}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleSmsRetry()}
+            disabled={resumingScope !== null}
+            className="border-border text-muted-foreground hover:bg-muted"
+          >
+            {resumingScope === 'failed' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RotateCcw className="h-3.5 w-3.5" />
+            )}
+            {t('retryFailed', { count: retryableCount })}
+          </Button>
+        </div>
+      )}
+
       {isSms && pendingCount > 0 && (
         <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4 text-sm">
           <p className="font-medium text-foreground">{t('smsQueuedTitle', { count: pendingCount })}</p>

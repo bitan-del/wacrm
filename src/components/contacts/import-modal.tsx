@@ -18,6 +18,8 @@ import {
   type ContactTagAssignment,
 } from '@/lib/contacts/resolve-import-tags';
 import { cn } from '@/lib/utils';
+import { isValidTimeZone } from '@/lib/sms/quiet-hours';
+import { useSmsStatus } from '@/hooks/use-sms-status';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -127,6 +129,7 @@ export function ImportModal({
   onImported,
 }: ImportModalProps) {
   const t = useTranslations('Contacts.importModal');
+  const smsStatus = useSmsStatus();
   const supabase = createClient();
   const { accountId, canEditSettings } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -241,23 +244,26 @@ export function ImportModal({
       //    generated `phone_normalized` column (migration 022) → Set.
       const { data: existingRows } = await supabase
         .from('contacts')
-        .select('phone_normalized')
+        .select('id, phone_normalized')
         .eq('account_id', accountId);
-      const existing = new Set(
-        (existingRows ?? [])
-          .map(
-            (r) => (r as { phone_normalized: string | null }).phone_normalized
-          )
-          .filter((p): p is string => !!p)
-      );
+      // normalized phone → contact id, so an existing contact can still
+      // pick up an SMS opt-in from the file below.
+      const existing = new Map<string, string>();
+      for (const r of (existingRows ?? []) as { id: string; phone_normalized: string | null }[]) {
+        if (r.phone_normalized) existing.set(r.phone_normalized, r.id);
+      }
+      const existingConsentIds: string[] = [];
 
       const toInsert = unique.filter((row) => {
-        if (existing.has(normalizeKey(row.phone))) {
+        const existingId = existing.get(normalizeKey(row.phone));
+        if (existingId) {
+          if (row.smsConsent === true) existingConsentIds.push(existingId);
           skipped++;
           return false;
         }
         return true;
       });
+      const importedAt = new Date().toISOString();
 
       // 3) Resolve tag names → ids (admin+ may auto-create missing tags).
       //    Skip the round-trip when the import carries no tag names.
@@ -289,6 +295,12 @@ export function ImportModal({
           name: row.name || null,
           email: row.email || null,
           company: row.company || null,
+          // SMS consent from the file (migration 063). The DB trigger
+          // writes the matching sms_consent_events row.
+          ...(row.smsConsent === true
+            ? { sms_opted_in_at: importedAt, sms_opt_in_source: 'import' }
+            : {}),
+          ...(isValidTimeZone(row.timezone) ? { timezone: row.timezone } : {}),
         }));
 
         const { data, error } = await supabase
@@ -355,6 +367,27 @@ export function ImportModal({
         }
       }
 
+      // 4b) SMS opt-in for contacts that already existed. Goes through
+      //     the consent API so a recipient's own STOP is never overridden.
+      let smsConsented = toInsert.filter((row) => row.smsConsent === true).length;
+      for (let i = 0; i < existingConsentIds.length; i += 1000) {
+        try {
+          const res = await fetch('/api/sms/consent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contact_ids: existingConsentIds.slice(i, i + 1000),
+              action: 'opt_in',
+              source: 'import',
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok) smsConsented += Number(data.updated) || 0;
+        } catch {
+          // Non-fatal: the contacts themselves were handled above.
+        }
+      }
+
       // 5) Wire tags onto the contacts we just created. Failure here must
       //    not mask a successful contact import.
       let tagsAssigned = 0;
@@ -382,6 +415,9 @@ export function ImportModal({
       }
       if (tagsAssigned > 0) {
         toast.success(t('toastTagsAssigned', { count: tagsAssigned }));
+      }
+      if (smsConsented > 0) {
+        toast.success(t('toastSmsConsent', { count: smsConsented }));
       }
       if (skippedNames.length > 0) {
         const sample = skippedNames.slice(0, 3).join(', ');
@@ -446,6 +482,9 @@ export function ImportModal({
                 })
               }}
             />
+            {smsStatus.enabled && (
+              <p className="text-xs leading-relaxed text-muted-foreground">{t('smsColumnsHint')}</p>
+            )}
           </DialogHeader>
 
           <div

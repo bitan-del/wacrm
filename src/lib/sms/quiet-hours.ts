@@ -4,12 +4,15 @@
 // TCPA bars telemarketing texts before 8am and after 9pm in the
 // recipient's local time (several states are stricter — the window is
 // configurable per account for that reason). "Local time" is the
-// contact's own timezone when we know it, else the account's default.
+// contact's own timezone when we know it, else every zone its +1 area
+// code covers, else the account's default (see recipientTimeZones).
 //
 // The window may wrap midnight (21 → 8) or not (e.g. 0 → 6); start ===
 // end means "no quiet hours". All arithmetic is done through Intl, so
 // DST transitions resolve against the real tz database.
 // ============================================================
+
+import { timeZonesForPhone } from './area-codes';
 
 export const DEFAULT_SMS_TIMEZONE = 'America/New_York';
 export const DEFAULT_QUIET_HOURS_START = 21;
@@ -38,6 +41,21 @@ export function isValidTimeZone(tz: string | null | undefined): tz is string {
   }
   validityCache.set(tz, ok);
   return ok;
+}
+
+/**
+ * Zones to judge a recipient's quiet hours in: the contact's own
+ * timezone when set; else every zone its +1 area code covers; else the
+ * account default.
+ */
+export function recipientTimeZones(
+  contact: { timezone?: string | null; phone?: string | null },
+  accountTz: string | null | undefined,
+): string[] {
+  if (isValidTimeZone(contact.timezone)) return [contact.timezone];
+  const fromAreaCode = timeZonesForPhone(contact.phone)?.filter(isValidTimeZone);
+  if (fromAreaCode && fromAreaCode.length > 0) return [...fromAreaCode];
+  return [resolveTimeZone(null, accountTz)];
 }
 
 /** Contact tz when valid, else the account default when valid, else ET. */
@@ -132,4 +150,36 @@ export function nextAllowedSendTime(
     candidate = new Date(candidate.getTime() + 15 * 60_000);
   }
   return candidate;
+}
+
+// ------------------------------------------------------------
+// Several candidate zones (area-code inference, see area-codes.ts)
+// ------------------------------------------------------------
+
+/** Quiet if it's quiet in ANY candidate zone. */
+export function isQuietHoursInAny(
+  date: Date,
+  zones: readonly string[],
+  window?: Partial<QuietHoursWindow>,
+): boolean {
+  return zones.some((tz) => isQuietHours(date, tz, window));
+}
+
+/**
+ * Earliest instant at or after `date` that is outside quiet hours in
+ * EVERY candidate zone. Steps forward zone by zone; converges in a few
+ * rounds because all zones share the same local window.
+ */
+export function nextAllowedSendTimeInAll(
+  date: Date,
+  zones: readonly string[],
+  window?: Partial<QuietHoursWindow>,
+): Date {
+  let t = date;
+  for (let round = 0; round < 8; round++) {
+    const quiet = zones.find((tz) => isQuietHours(t, tz, window));
+    if (!quiet) return t;
+    t = nextAllowedSendTime(t, quiet, window);
+  }
+  return t;
 }

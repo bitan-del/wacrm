@@ -78,9 +78,12 @@ channel and the setup guide for operators and their customers.
    carry consent, so the SMS path never creates contacts.
 3. `POST /api/sms/broadcasts` creates the broadcast + recipient rows. Each
    recipient's body is rendered and frozen; `scheduled_for` is now, or
-   the next 08:00 in the recipient's timezone (contact `timezone` when
-   set and valid, else the account's `default_timezone`) when now falls
-   inside the 21:00–08:00 window (window configurable per account).
+   the next 08:00 in the recipient's timezone when now falls inside the
+   21:00–08:00 window (window configurable per account). Timezone: the
+   contact's `timezone` when set; else every zone its US/Canada area
+   code covers (`src/lib/sms/area-codes.ts` — a split code like 850 must
+   be outside quiet hours in both Eastern and Central); else the
+   account's `default_timezone`.
 4. Delivery runs server-side (`after()` for the first pass, then
    `GET /api/sms/cron` on a schedule) using the claim RPC. Each send
    re-checks consent, passes a status-callback URL, and stamps
@@ -97,8 +100,14 @@ channel and the setup guide for operators and their customers.
   of the customer's last message). SMS mode is text-only, ignores the
   WhatsApp 24-hour window, shows a live segment counter and posts to
   `POST /api/sms/send`.
-- Automations, Flows and the AI auto-reply are WhatsApp-only and do not
-  fire on SMS inbound (they would answer on the wrong channel).
+- MMS: inbound attachments are copied into the `chat-media` bucket and
+  shown like WhatsApp media; agents can send a photo as MMS.
+- Automations run on SMS inbound with `channel: 'sms'`: their "Send
+  message" steps reply by SMS (consent re-checked); WhatsApp-only steps
+  (buttons, lists, templates) fail with a clear reason. The AI
+  auto-reply also answers SMS by SMS. Flows are not dispatched — they
+  are built from WhatsApp buttons and lists. Compliance keywords
+  (STOP/START/HELP) never trigger automations or AI.
 
 ### Webhooks and security
 
@@ -127,20 +136,21 @@ channel and the setup guide for operators and their customers.
    | `ENCRYPTION_KEY` | already set | Encrypts each workspace's Twilio Auth Token (same key as WhatsApp tokens). |
    | `SUPABASE_SERVICE_ROLE_KEY` | already set | Webhooks and the delivery cron run without a user session. |
    | `NEXT_PUBLIC_SITE_URL` | **yes for SMS** | Public origin (e.g. `https://waba.outreach-pro.in`). Used to build the status-callback URL from the cron, which has no browser request to derive it from, and as the public URL Twilio signed. |
-   | `SMS_CRON_SECRET` | **yes for SMS broadcasts** | Shared secret for `GET /api/sms/cron`. Falls back to `AUTOMATION_CRON_SECRET` when unset. |
+   | `CRON_SECRET` | **yes for SMS broadcasts** | Vercel Cron sends it as `Authorization: Bearer …` to `/api/sms/cron` (scheduled in `vercel.json`, daily at 18:00 UTC on Hobby). |
+   | `SMS_CRON_SECRET` | optional | Secret for an external pinger (`x-cron-secret` header) that calls `/api/sms/cron` more often. Falls back to `AUTOMATION_CRON_SECRET`. |
 
-3. **Schedule the delivery cron** every 5 minutes (it delivers
-   recipients held for quiet hours, rate-limit retries, and anything the
-   first pass of a large campaign didn't reach):
+3. **Delivery cron.** `vercel.json` schedules `/api/sms/cron` once a day
+   (18:00 UTC — after 8am in every US zone, the most Vercel Hobby
+   allows); set `CRON_SECRET` so Vercel can authenticate. For faster
+   release of quiet-hour holds and rate-limit retries, also ping it every
+   5 minutes from an external scheduler:
 
    ```bash
    curl -fsS -H "x-cron-secret: $SMS_CRON_SECRET" https://waba.outreach-pro.in/api/sms/cron
    ```
 
-   Vercel Cron cannot send custom headers, so use an external pinger
-   (cron-job.org, GitHub Actions schedule, Upstash QStash…) or the same
-   pinger that already drives `/api/automations/cron`. Without the cron,
-   a campaign started during quiet hours never sends.
+   (cron-job.org, GitHub Actions schedule, Upstash QStash…, or the same
+   pinger that already drives `/api/automations/cron`).
 
 ### What each customer (workspace) does
 
@@ -185,12 +195,15 @@ channel and the setup guide for operators and their customers.
    the customer doesn't get two.
 6. **Record consent.** Only contacts with an SMS opt-in receive
    broadcasts. Record it per contact (Contacts → contact → Details →
-   SMS consent, with the source: web form, paper form, verbal…) or via
+   SMS consent, with the source: web form, paper form, verbal…), in bulk
+   (select contacts → **SMS consent**), in a CSV import (`sms_consent`
+   column with yes/no, optional `timezone` column), or via
    `POST /api/sms/consent` (`{ contact_ids, action: "opt_in", source }`)
    from the customer's own sign-up integration. A contact who texted
    STOP can only re-subscribe by texting START.
 7. **Timezones.** Set a contact's timezone (Details → SMS consent) when
-   known; otherwise the workspace default timezone decides quiet hours.
+   known. Otherwise US/Canada numbers are judged by their area code, and
+   other numbers by the workspace default timezone.
 
 ### Using it
 
@@ -213,14 +226,13 @@ channel and the setup guide for operators and their customers.
 | 30007 | Carrier filtered the message | Delivery status `failed` with the code — review content / registration |
 | 20429 / HTTP 429 | Rate limited | Recipient re-queued for a minute later |
 
-### Known limits / follow-ups
+### Known limits
 
-- Text only: inbound MMS is recorded as "[MMS: N attachments]"; no
-  outbound MMS.
-- No area-code → timezone inference yet: contacts without a timezone use
-  the workspace default, so a nationwide list with an Eastern default can
-  reach Pacific numbers before 8am local. Set contact timezones (or a
-  more western default) for nationwide sends.
-- Automations, Flows and AI auto-reply don't run on SMS.
-- No bulk consent UI or CSV consent column yet (the API takes up to 1000
-  ids per call). No "retry failed" for SMS broadcasts.
+- MMS: photos only for outbound (carriers deliver images reliably; video
+  and documents much less so). Broadcasts are text-only.
+- Area codes are a proxy: a mobile number keeps its area code when its
+  owner moves. Set the contact's timezone when you know it.
+- Flows don't run on SMS (they're built from WhatsApp buttons/lists).
+- Vercel Hobby runs the cron once a day (18:00 UTC — after 8am in every
+  US zone incl. Hawaii); a campaign held for quiet hours goes out then
+  unless an external pinger calls `/api/sms/cron` more often.

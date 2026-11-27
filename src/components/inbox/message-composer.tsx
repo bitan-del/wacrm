@@ -224,6 +224,8 @@ export function MessageComposer({
   // and media / interactive / templates are WhatsApp-only.
   const textBlocked = isSms ? smsOptedOut : sessionExpired;
   const inputsDisabled = readOnly || sessionExpired || isSms;
+  // Attachments: WhatsApp media inside the 24h window, or a photo as MMS.
+  const attachDisabled = readOnly || textBlocked;
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -707,13 +709,15 @@ export function MessageComposer({
           {/* Attach menu — photo / video / document / voice. */}
           <DropdownMenu>
             <DropdownMenuTrigger
-              disabled={inputsDisabled || busy}
+              disabled={attachDisabled || busy}
               title={
                 readOnly
                   ? t("readOnlyTitle")
-                  : inputsDisabled
+                  : attachDisabled
                     ? undefined
-                    : t("attachMedia")
+                    : isSms
+                      ? tSms("attachPhoto")
+                      : t("attachMedia")
               }
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -728,18 +732,24 @@ export function MessageComposer({
                 <ImageIcon className="mr-2 h-4 w-4" />
                 {t("photo")}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => videoInputRef.current?.click()}>
-                <Video className="mr-2 h-4 w-4" />
-                {t("video")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => documentInputRef.current?.click()}>
-                <FileText className="mr-2 h-4 w-4" />
-                {t("document")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void startRecording()}>
-                <Mic className="mr-2 h-4 w-4" />
-                {t("voiceNote")}
-              </DropdownMenuItem>
+              {/* MMS: photos only — carriers deliver images reliably,
+                  video / documents / voice much less so. */}
+              {!isSms && (
+                <>
+                  <DropdownMenuItem onClick={() => videoInputRef.current?.click()}>
+                    <Video className="mr-2 h-4 w-4" />
+                    {t("video")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => documentInputRef.current?.click()}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    {t("document")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void startRecording()}>
+                    <Mic className="mr-2 h-4 w-4" />
+                    {t("voiceNote")}
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 

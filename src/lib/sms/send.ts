@@ -14,6 +14,7 @@ import { classifySmsReply, smsPhoneFor } from './consent';
 import { optOutByPhone } from './consent-store';
 import { createSmsProvider, loadSmsConfigForAccount, smsWebhookUrls, SmsConfigUnreadableError } from './config';
 import { SMS_MAX_BODY_CHARS } from './limits';
+import { isSendableMediaUrl } from './media';
 import { persistOutboundSms } from './threads';
 import { TWILIO_ERROR_UNSUBSCRIBED } from './twilio';
 import { SmsProviderError } from './types';
@@ -46,6 +47,8 @@ export interface SendSmsToConversationParams {
   senderId: string;
   /** Public origin for the status callback; null skips it. */
   origin: string | null;
+  /** MMS: a public https image URL (the composer's chat-media upload). */
+  mediaUrl?: string | null;
 }
 
 export async function sendSmsToConversation(
@@ -57,7 +60,11 @@ export async function sendSmsToConversation(
   params: SendSmsToConversationParams,
 ): Promise<{ messageId: string; providerMessageId: string }> {
   const text = (params.text ?? '').trim();
-  if (!text) throw new SmsSendError('bad_request', 'Message text is required', 400);
+  const mediaUrl = params.mediaUrl ?? null;
+  if (mediaUrl !== null && !isSendableMediaUrl(mediaUrl)) {
+    throw new SmsSendError('bad_request', 'Attachment URL must be https', 400);
+  }
+  if (!text && !mediaUrl) throw new SmsSendError('bad_request', 'Message text is required', 400);
   if (text.length > SMS_MAX_BODY_CHARS) {
     throw new SmsSendError('bad_request', `SMS is limited to ${SMS_MAX_BODY_CHARS} characters`, 400);
   }
@@ -95,6 +102,7 @@ export async function sendSmsToConversation(
       to,
       body: text,
       statusCallbackUrl: params.origin ? smsWebhookUrls(params.origin, config).status : null,
+      mediaUrls: mediaUrl ? [mediaUrl] : undefined,
     });
     providerMessageId = result.providerMessageId;
   } catch (err) {
@@ -119,6 +127,7 @@ export async function sendSmsToConversation(
     providerMessageId,
     senderType: 'agent',
     senderId: params.senderId,
+    media: mediaUrl ? { kind: 'image', url: mediaUrl } : null,
   });
   if (!messageId) {
     throw new SmsSendError('db_error', 'SMS sent but failed to save to the conversation', 500);

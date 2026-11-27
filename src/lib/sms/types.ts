@@ -36,6 +36,8 @@ export interface SmsSendParams {
   body: string;
   /** Where the provider should POST delivery-status updates. */
   statusCallbackUrl?: string | null;
+  /** Public https URLs to attach (MMS). The provider fetches them. */
+  mediaUrls?: readonly string[];
 }
 
 export interface SmsSendResult {
@@ -56,7 +58,13 @@ export interface InboundSms {
   body: string;
   /** Provider's own keyword classification (Twilio `OptOutType`). */
   keywordHint: string | null;
-  mediaUrls: string[];
+  /** MMS attachments, in order. */
+  media: InboundSmsMedia[];
+}
+
+export interface InboundSmsMedia {
+  url: string;
+  contentType: string | null;
 }
 
 export interface SmsStatusEvent {
@@ -93,6 +101,8 @@ export interface SmsProvider {
   /** Throws `SmsProviderError` when credentials or sender are unusable. */
   verifyCredentials(): Promise<VerifiedSmsAccount>;
   verifyWebhookSignature(input: WebhookSignatureInput): boolean;
+  /** Fetch an inbound MMS attachment (the provider may require auth). */
+  downloadMedia(url: string): Promise<{ buffer: Buffer; contentType: string }>;
 }
 
 /** A failed provider call, with the provider's numeric code when known. */

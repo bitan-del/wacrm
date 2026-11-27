@@ -12,6 +12,7 @@ import {
   loadAccountMetaCredentials,
 } from '@/lib/flows/meta-send'
 import { sendTypingIndicator } from '@/lib/whatsapp/meta-api'
+import { engineSendSmsText } from '@/lib/sms/engine-send'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
 interface DispatchArgs {
@@ -26,6 +27,9 @@ interface DispatchArgs {
    *  a typing indicator (which also marks it read) is shown while the
    *  reply is generated. Optional so older callers keep working. */
   inboundMessageId?: string
+  /** Channel the inbound arrived on (migration 063). 'sms' replies by
+   *  SMS and skips the WhatsApp typing indicator. Default WhatsApp. */
+  channel?: 'whatsapp' | 'sms'
 }
 
 /**
@@ -56,6 +60,7 @@ export async function dispatchInboundToAiReply(
     contactId,
     configOwnerUserId,
     inboundMessageId,
+    channel = 'whatsapp',
   } = args
 
   try {
@@ -118,7 +123,7 @@ export async function dispatchInboundToAiReply(
     // 25 s or when our reply lands, whichever is first, so there's
     // nothing to undo on the handoff / no-text path. Strictly
     // best-effort: a failed indicator must never cost us the reply.
-    if (inboundMessageId) {
+    if (inboundMessageId && channel === 'whatsapp') {
       await showTypingIndicator(db, accountId, inboundMessageId)
     }
 
@@ -213,6 +218,10 @@ export async function dispatchInboundToAiReply(
     }
     if (claimed !== true) return
 
+    if (channel === 'sms') {
+      await engineSendSmsText({ accountId, conversationId, contactId, text, aiGenerated: true })
+      return
+    }
     await engineSendText({
       accountId,
       userId: configOwnerUserId,

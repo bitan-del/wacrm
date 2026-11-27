@@ -544,7 +544,8 @@
       "optedOutHint": "이 연락처는 SMS 수신을 거부했습니다(STOP 전송). 다시 문자를 보내려면 연락처가 START를 보내야 합니다.",
       "placeholder": "SMS 입력…",
       "optedOutPlaceholder": "SMS 사용 불가 — 연락처가 수신을 거부함",
-      "segmentCounter": "{segments}개 세그먼트 · {encoding} · {remaining}자 남음"
+      "segmentCounter": "{segments}개 세그먼트 · {encoding} · {remaining}자 남음",
+      "attachPhoto": "사진 첨부(MMS로 전송)"
     }
   },
   "Contacts": {
@@ -746,7 +747,9 @@
       "toastError": "가져오기 실패",
       "notAuthenticated": "인증되지 않았습니다",
       "notLinkedToAccount": "프로필이 계정에 연결되어 있지 않습니다.",
-      "toastTagsSkippedMore": " (외 {count}개)"
+      "toastTagsSkippedMore": " (외 {count}개)",
+      "smsColumnsHint": "SMS: 문자 수신에 서면으로 명시적 동의를 한 사람에게만 sms_consent 열(yes / no)을 추가하고, 방해 금지 시간을 위해 선택적으로 timezone 열(예: America/Chicago)을 추가하세요.",
+      "toastSmsConsent": "연락처 {count}개를 SMS 수신 동의로 표시했습니다"
     },
     "customFields": {
       "title": "커스텀 필드",
@@ -801,10 +804,17 @@
       "saveFailed": "SMS 수신 동의를 업데이트하지 못했습니다.",
       "timezoneLabel": "시간대(방해 금지 시간용)",
       "timezonePlaceholder": "예: America/Chicago",
-      "timezoneHint": "비워 두면 워크스페이스 기본값을 사용합니다.",
+      "timezoneHint": "비워 두면 미국/캐나다 지역 번호를 사용하고, 그 외 번호는 워크스페이스 기본값을 사용합니다.",
       "timezoneInvalid": "America/Chicago와 같은 유효한 시간대를 입력하세요.",
       "timezoneSaved": "시간대를 저장했습니다.",
-      "save": "저장"
+      "save": "저장",
+      "bulkButton": "SMS 수신 동의",
+      "bulkTitle": "연락처 {count}개의 SMS 수신 동의",
+      "bulkDesc": "이 연락처들이 SMS 수신에 동의했음을 기록하거나 수신 거부로 표시합니다.",
+      "bulkStopNote": "STOP을 보내 수신을 거부한 연락처는 건너뜁니다. 본인이 START를 보내야만 다시 동의할 수 있습니다.",
+      "bulkDone": "업데이트 {updated}개, 건너뜀 {skipped}개.",
+      "cancel": "취소",
+      "apply": "적용"
     }
   },
   "Pipelines": {
@@ -1015,7 +1025,8 @@
       "smsQueuedTitle": "전송 대기 중인 메시지 {count}개",
       "smsQueuedQuietHours": "{count}개는 방해 금지 시간으로 보류 중이며, 다음 전송은 {date, date, medium} {date, time, short}입니다.",
       "smsQueuedHint": "백그라운드에서 전송 중입니다. 메시지가 전송되면 이 페이지가 업데이트됩니다.",
-      "smsScheduledFor": "{date, date, short} {date, time, short} 예약됨"
+      "smsScheduledFor": "{date, date, short} {date, time, short} 예약됨",
+      "smsRetryHint": "수신자 {count}명에게 전송 실패. 다시 시도하면 전송 전에 동의 여부와 방해 금지 시간을 다시 확인합니다."
     },
     "new": {
       "title": "새 브로드캐스트",
@@ -2420,7 +2431,7 @@
       "optInReply": "START 확인 메시지",
       "confirmationsHint": "Twilio는 STOP과 START를 자체적으로 확인하므로, 이 메시지는 그렇지 않은 제공업체에서만 전송됩니다.",
       "sendingTitle": "방해 금지 시간 및 요금",
-      "sendingDesc": "브로드캐스트 메시지는 수신자 현지 시간 기준 방해 금지 시간에는 절대 전송되지 않습니다. 시간대가 없는 연락처는 아래 기본값을 사용합니다.",
+      "sendingDesc": "브로드캐스트 메시지는 수신자 현지 시간 기준 방해 금지 시간에는 절대 전송되지 않습니다. 시간대가 없는 연락처는 미국/캐나다 지역 번호(해당하는 모든 시간대)로 판단하며, 그 외에는 아래 기본값을 사용합니다.",
       "defaultTimezone": "기본 시간대",
       "quietStart": "방해 금지 시작(시)",
       "quietEnd": "방해 금지 종료(시)",

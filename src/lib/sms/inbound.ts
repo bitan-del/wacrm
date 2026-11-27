@@ -6,22 +6,29 @@
 //      (conversation_id, message_id) makes provider retries no-ops —
 //      this insert is the idempotency boundary, so nothing below runs
 //      twice for one MessageSid.
+//      MMS attachments are mirrored to `chat-media` first, one message
+//      row each (the first carries the text as its caption).
 //   3. Keywords: STOP family → opt out, START → opt in, HELP → reply.
 //   4. Bump the conversation, re-open it, credit a broadcast reply,
 //      fan out the public `message.received` webhook.
-//
-// Automations, Flows and AI auto-reply are WhatsApp-only and are NOT
-// dispatched here: every one of them answers over WhatsApp.
+//   5. Ordinary texts (not a compliance keyword) run automations with
+//      `channel: 'sms'` — their text steps reply by SMS — and then the
+//      AI auto-reply, also over SMS. Flows are not dispatched: they are
+//      built from WhatsApp buttons and lists, which SMS can't carry.
 // ============================================================
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { runAutomationsForTrigger } from '@/lib/automations/engine';
+import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply';
+import { claimFirstInboundMessage } from '@/lib/conversations/first-inbound';
 import { reopenClosedConversation } from '@/lib/conversations/reopen';
 import { flagBroadcastReply } from '@/lib/whatsapp/broadcast-recipient-webhook';
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver';
 import { defaultHelpReply, smsWebhookUrls, type SmsConfigRow } from './config';
 import { applySmsConsent, recordSmsHelpEvent } from './consent-store';
 import { classifySmsKeyword, normalizeKeywordText, type SmsKeywordIntent } from './keywords';
+import { contentTypeForMime, mirrorSmsMedia } from './media';
 import { findOrCreateConversation, findOrCreateSmsContact, persistOutboundSms, resolveAuditUserId } from './threads';
 import type { InboundSms, SmsProvider } from './types';
 
@@ -30,11 +37,9 @@ export interface InboundOutcome {
   intent: SmsKeywordIntent | null;
 }
 
-function inboundText(sms: InboundSms): string {
-  const body = sms.body ?? '';
-  if (sms.mediaUrls.length === 0) return body;
-  const note = `[MMS: ${sms.mediaUrls.length} attachment${sms.mediaUrls.length === 1 ? '' : 's'}]`;
-  return body ? `${body}\n${note}` : note;
+/** Message id of the i-th attachment row (the first reuses the provider id). */
+export function smsAttachmentMessageId(providerMessageId: string, index: number): string {
+  return index === 0 ? providerMessageId : `${providerMessageId}-m${index}`;
 }
 
 /** Text we send back for a keyword, or null to stay silent. */
@@ -82,15 +87,51 @@ export async function processInboundSms(
     });
   }
 
-  const text = inboundText(sms);
+  const text = sms.body ?? '';
+
+  // Cheap replay check before spending any media downloads.
+  const { data: already } = await db
+    .from('messages')
+    .select('id')
+    .eq('conversation_id', conversation.id)
+    .eq('message_id', sms.providerMessageId)
+    .limit(1);
+  if (already && already.length > 0) return { status: 'duplicate', intent: null };
+
+  const attachments = await Promise.all(
+    sms.media.map(async (media, index) => ({
+      kind: contentTypeForMime(media.contentType),
+      mime: media.contentType,
+      url:
+        (await mirrorSmsMedia({
+          storage: db.storage,
+          provider,
+          accountId,
+          messageId: sms.providerMessageId,
+          index,
+          media,
+        })) ?? media.url,
+    })),
+  );
+  const rows =
+    attachments.length === 0
+      ? [{ content_type: 'text', content_text: text || null, media_url: null, media_type: null }]
+      : attachments.map((a, i) => ({
+          content_type: a.kind,
+          content_text: i === 0 ? text || null : null,
+          media_url: a.url,
+          media_type: a.mime,
+        }));
+
+  // The first row is the idempotency boundary: an empty result means a
+  // concurrent delivery of the same MessageSid got there first.
   const { data: inserted, error: insertError } = await db
     .from('messages')
     .upsert(
       {
         conversation_id: conversation.id,
         sender_type: 'customer',
-        content_type: 'text',
-        content_text: text || null,
+        ...rows[0],
         message_id: sms.providerMessageId,
         status: 'delivered',
         channel: 'sms',
@@ -106,6 +147,21 @@ export async function processInboundSms(
   if (!inserted || inserted.length === 0) {
     return { status: 'duplicate', intent: null };
   }
+  if (rows.length > 1) {
+    const { error: extraError } = await db.from('messages').upsert(
+      rows.slice(1).map((row, i) => ({
+        conversation_id: conversation.id,
+        sender_type: 'customer',
+        ...row,
+        message_id: smsAttachmentMessageId(sms.providerMessageId, i + 1),
+        status: 'delivered',
+        channel: 'sms',
+      })),
+      { onConflict: 'conversation_id,message_id', ignoreDuplicates: true },
+    );
+    if (extraError) console.error('[sms/inbound] extra attachment insert failed:', extraError.message);
+  }
+  const summary = text || (attachments.length > 0 ? `[${attachments[0].kind}]` : '[sms]');
 
   // ---- Compliance keywords -------------------------------------
   const intent = classifySmsKeyword(sms.body, sms.keywordHint);
@@ -140,7 +196,7 @@ export async function processInboundSms(
   // ---- Conversation bookkeeping --------------------------------
   const { error: bumpError } = await db.rpc('bump_conversation_on_inbound', {
     p_conversation_id: conversation.id,
-    p_last_message_text: text || '[sms]',
+    p_last_message_text: summary,
   });
   if (bumpError) console.error('[sms/inbound] conversation bump failed:', bumpError.message);
 
@@ -177,12 +233,48 @@ export async function processInboundSms(
     }
   }
 
+  // ---- Automations + AI (ordinary texts only) --------------------
+  if (intent === null) {
+    const isFirstInbound = await claimFirstInboundMessage(
+      db,
+      conversation as { id: string; first_inbound_at?: string | null },
+      new Date().toISOString(),
+    );
+    const triggers: ('new_contact_created' | 'first_inbound_message' | 'new_message_received' | 'keyword_match')[] = [
+      'new_message_received',
+      'keyword_match',
+    ];
+    if (contactOutcome.created) triggers.unshift('new_contact_created');
+    if (isFirstInbound) triggers.unshift('first_inbound_message');
+    for (const triggerType of triggers) {
+      await runAutomationsForTrigger({
+        accountId,
+        triggerType,
+        contactId: contact.id,
+        context: { message_text: text, conversation_id: conversation.id, channel: 'sms' },
+      }).catch((err) => console.error('[sms/inbound] automations failed:', err));
+    }
+
+    if (text.trim()) {
+      await dispatchInboundToAiReply({
+        accountId,
+        conversationId: conversation.id,
+        contactId: contact.id,
+        configOwnerUserId: auditUserId,
+        // The newest row of this delivery — the AI skips when a newer
+        // customer message exists, and extra MMS rows come after the first.
+        inboundMessageId: smsAttachmentMessageId(sms.providerMessageId, rows.length - 1),
+        channel: 'sms',
+      });
+    }
+  }
+
   await dispatchWebhookEvent(db, accountId, 'message.received', {
     conversation_id: conversation.id,
     contact_id: contact.id,
     channel: 'sms',
     sms_message_id: sms.providerMessageId,
-    content_type: 'text',
+    content_type: rows[0].content_type,
     text,
   });
 

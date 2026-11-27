@@ -544,7 +544,8 @@
       "optedOutHint": "Este contacto se dio de baja de los SMS (envió STOP). Debe enviar START antes de que puedas volver a escribirle.",
       "placeholder": "Escribe un SMS…",
       "optedOutPlaceholder": "SMS no disponible: el contacto se dio de baja",
-      "segmentCounter": "{segments, plural, one {# segmento} other {# segmentos}} · {encoding} · quedan {remaining}"
+      "segmentCounter": "{segments, plural, one {# segmento} other {# segmentos}} · {encoding} · quedan {remaining}",
+      "attachPhoto": "Adjuntar una foto (se envía como MMS)"
     }
   },
   "Contacts": {
@@ -746,7 +747,9 @@
       "toastError": "Error en la importación",
       "notAuthenticated": "No autenticado",
       "notLinkedToAccount": "Tu perfil no está vinculado a una cuenta.",
-      "toastTagsSkippedMore": " (+{count} más)"
+      "toastTagsSkippedMore": " (+{count} más)",
+      "smsColumnsHint": "SMS: agrega una columna sms_consent (yes / no) solo para personas que dieron su consentimiento expreso por escrito para recibir tus mensajes, y una columna opcional timezone (p. ej. America/Chicago) para el horario de silencio.",
+      "toastSmsConsent": "{count, plural, one {# contacto marcado} other {# contactos marcados}} como suscritos a SMS"
     },
     "customFields": {
       "title": "Campos personalizados",
@@ -801,10 +804,17 @@
       "saveFailed": "No se pudo actualizar el consentimiento para SMS.",
       "timezoneLabel": "Zona horaria (para el horario de silencio)",
       "timezonePlaceholder": "p. ej. America/Chicago",
-      "timezoneHint": "Déjalo vacío para usar la predeterminada del espacio de trabajo.",
+      "timezoneHint": "Déjalo vacío para usar el código de área de EE. UU./Canadá, o la predeterminada del espacio de trabajo para otros números.",
       "timezoneInvalid": "Ingresa una zona horaria válida, como America/Chicago.",
       "timezoneSaved": "Zona horaria guardada.",
-      "save": "Guardar"
+      "save": "Guardar",
+      "bulkButton": "Consentimiento SMS",
+      "bulkTitle": "Consentimiento SMS para {count, plural, one {# contacto} other {# contactos}}",
+      "bulkDesc": "Registra que estos contactos aceptaron recibir SMS o márcalos como dados de baja.",
+      "bulkStopNote": "Se omiten los contactos que se dieron de baja enviando STOP: solo su propio START puede volver a suscribirlos.",
+      "bulkDone": "Actualizados: {updated}; omitidos: {skipped}.",
+      "cancel": "Cancelar",
+      "apply": "Aplicar"
     }
   },
   "Pipelines": {
@@ -1015,7 +1025,8 @@
       "smsQueuedTitle": "{count, plural, one {Queda # mensaje} other {Quedan # mensajes}} por enviar",
       "smsQueuedQuietHours": "{count, plural, one {# está retenido} other {# están retenidos}} por el horario de silencio; el próximo sale el {date, date, medium} a las {date, time, short}.",
       "smsQueuedHint": "Enviando en segundo plano. Esta página se actualiza a medida que salen los mensajes.",
-      "smsScheduledFor": "Programado para {date, date, short} {date, time, short}"
+      "smsScheduledFor": "Programado para {date, date, short} {date, time, short}",
+      "smsRetryHint": "{count, plural, one {# destinatario falló} other {# destinatarios fallaron}}. Al reintentar se vuelven a comprobar el consentimiento y el horario de silencio antes de cada envío."
     },
     "new": {
       "title": "Nueva difusión",
@@ -2420,7 +2431,7 @@
       "optInReply": "Confirmación de START",
       "confirmationsHint": "Twilio ya confirma STOP y START por su cuenta, así que estos solo se envían con proveedores que no lo hacen.",
       "sendingTitle": "Horario de silencio y precios",
-      "sendingDesc": "Los mensajes de difusión nunca se envían durante el horario de silencio en la hora local del destinatario. Los contactos sin zona horaria usan la predeterminada.",
+      "sendingDesc": "Los mensajes de difusión nunca se envían durante el horario de silencio en la hora local del destinatario. Los contactos sin zona horaria se evalúan por su código de área de EE. UU./Canadá (todas las zonas que cubre); si no, por la predeterminada.",
       "defaultTimezone": "Zona horaria predeterminada",
       "quietStart": "Inicio del silencio (hora)",
       "quietEnd": "Fin del silencio (hora)",

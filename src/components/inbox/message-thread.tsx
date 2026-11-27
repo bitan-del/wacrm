@@ -677,6 +677,8 @@ export function MessageThread({
           : payload.caption;
 
       const tempId = newTempMessageId();
+      // A photo sent while the SMS channel is selected goes out as MMS.
+      const viaSms = replyChannel === "sms" && payload.kind === "image";
       const optimisticMsg: Message = {
         id: tempId,
         conversation_id: conversation.id,
@@ -686,24 +688,35 @@ export function MessageThread({
         media_url: payload.mediaUrl,
         status: "sending",
         created_at: new Date().toISOString(),
-        reply_to_message_id: payload.replyToId,
+        reply_to_message_id: viaSms ? undefined : payload.replyToId,
+        channel: viaSms ? "sms" : "whatsapp",
       };
       onNewMessage(optimisticMsg);
       setReplyTo(null);
 
       try {
-        const res = await fetch("/api/whatsapp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            message_type: payload.kind,
-            media_url: payload.mediaUrl,
-            content_text: contentText,
-            filename: payload.filename,
-            reply_to_message_id: payload.replyToId,
-          }),
-        });
+        const res = viaSms
+          ? await fetch("/api/sms/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                conversation_id: conversation.id,
+                content_text: contentText ?? "",
+                media_url: payload.mediaUrl,
+              }),
+            })
+          : await fetch("/api/whatsapp/send", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                conversation_id: conversation.id,
+                message_type: payload.kind,
+                media_url: payload.mediaUrl,
+                content_text: contentText,
+                filename: payload.filename,
+                reply_to_message_id: payload.replyToId,
+              }),
+            });
 
         const data = await res.json().catch(() => ({}));
 
@@ -727,7 +740,7 @@ export function MessageThread({
         void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(() => {});
       }
     },
-    [conversation, onNewMessage, onUpdateMessage, t],
+    [conversation, onNewMessage, onUpdateMessage, t, replyChannel],
   );
 
   const handleSendInteractive = useCallback(

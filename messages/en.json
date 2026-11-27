@@ -544,7 +544,8 @@
       "optedOutHint": "This contact opted out of SMS (they texted STOP). They must text START before you can text them again.",
       "placeholder": "Type an SMS…",
       "optedOutPlaceholder": "SMS unavailable — contact opted out",
-      "segmentCounter": "{segments, plural, one {# segment} other {# segments}} · {encoding} · {remaining} left"
+      "segmentCounter": "{segments, plural, one {# segment} other {# segments}} · {encoding} · {remaining} left",
+      "attachPhoto": "Attach a photo (sent as MMS)"
     }
   },
   "Contacts": {
@@ -746,7 +747,9 @@
       "toastError": "Import failed",
       "notAuthenticated": "Not authenticated",
       "notLinkedToAccount": "Your profile is not linked to an account.",
-      "toastTagsSkippedMore": " (+{count} more)"
+      "toastTagsSkippedMore": " (+{count} more)",
+      "smsColumnsHint": "SMS: add an sms_consent column (yes / no) only for people who gave express written consent to receive your texts, and an optional timezone column (e.g. America/Chicago) for quiet hours.",
+      "toastSmsConsent": "{count, plural, one {# contact} other {# contacts}} marked as SMS opted-in"
     },
     "customFields": {
       "title": "Custom fields",
@@ -801,10 +804,17 @@
       "saveFailed": "Could not update SMS consent.",
       "timezoneLabel": "Timezone (for quiet hours)",
       "timezonePlaceholder": "e.g. America/Chicago",
-      "timezoneHint": "Leave empty to use the workspace default.",
+      "timezoneHint": "Leave empty to use the US/Canada area code, or the workspace default for other numbers.",
       "timezoneInvalid": "Enter a valid timezone such as America/Chicago.",
       "timezoneSaved": "Timezone saved.",
-      "save": "Save"
+      "save": "Save",
+      "bulkButton": "SMS consent",
+      "bulkTitle": "SMS consent for {count, plural, one {# contact} other {# contacts}}",
+      "bulkDesc": "Record that these contacts agreed to receive SMS, or mark them as opted out.",
+      "bulkStopNote": "Contacts who opted out by texting STOP are skipped — only their own START can re-subscribe them.",
+      "bulkDone": "Updated {updated}, skipped {skipped}.",
+      "cancel": "Cancel",
+      "apply": "Apply"
     }
   },
   "Pipelines": {
@@ -1015,7 +1025,8 @@
       "smsQueuedTitle": "{count, plural, one {# message} other {# messages}} still to send",
       "smsQueuedQuietHours": "{count, plural, one {# is} other {# are}} held for quiet hours; the next goes out {date, date, medium} {date, time, short}.",
       "smsQueuedHint": "Sending in the background. This page updates as messages go out.",
-      "smsScheduledFor": "Scheduled {date, date, short} {date, time, short}"
+      "smsScheduledFor": "Scheduled {date, date, short} {date, time, short}",
+      "smsRetryHint": "{count, plural, one {# recipient} other {# recipients}} failed. Retrying re-checks consent and quiet hours before each send."
     },
     "new": {
       "title": "New Broadcast",
@@ -2420,7 +2431,7 @@
       "optInReply": "START confirmation",
       "confirmationsHint": "Twilio already confirms STOP and START itself, so these are only sent by providers that don't.",
       "sendingTitle": "Quiet hours and pricing",
-      "sendingDesc": "Broadcast messages are never sent during quiet hours in the recipient's local time. Contacts without a timezone use the default below.",
+      "sendingDesc": "Broadcast messages are never sent during quiet hours in the recipient's local time. Contacts without a timezone are judged by their US/Canada area code (every zone it covers), otherwise by the default below.",
       "defaultTimezone": "Default timezone",
       "quietStart": "Quiet hours start (hour)",
       "quietEnd": "Quiet hours end (hour)",
