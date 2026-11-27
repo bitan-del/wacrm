@@ -5,6 +5,7 @@ vi.mock('@/lib/sms/broadcast', () => ({
   deliverDueSmsRecipients: vi.fn(async () => ({ claimed: 0, sent: 0, failed: 0, deferred: 0 })),
 }));
 
+import { __resetRateLimitForTests } from '@/lib/rate-limit';
 import { GET } from './route';
 
 const ENV_KEYS = ['SMS_CRON_SECRET', 'AUTOMATION_CRON_SECRET', 'CRON_SECRET'] as const;
@@ -13,6 +14,7 @@ let saved: Record<string, string | undefined>;
 beforeEach(() => {
   saved = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
   for (const k of ENV_KEYS) delete process.env[k];
+  __resetRateLimitForTests();
 });
 afterEach(() => {
   for (const k of ENV_KEYS) {
@@ -25,8 +27,15 @@ const call = (headers: Record<string, string>) =>
   GET(new Request('https://crm.example.com/api/sms/cron', { headers }));
 
 describe('GET /api/sms/cron auth', () => {
-  it('is disabled until a secret is configured', async () => {
-    expect((await call({})).status).toBe(503);
+  it('runs with no configuration at all (nothing to set up per deploy)', async () => {
+    expect((await call({})).status).toBe(200);
+  });
+
+  it('throttles an unconfigured endpoint so it cannot be hammered', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 8; i++) statuses.push((await call({})).status);
+    expect(statuses.slice(0, 6).every((s) => s === 200)).toBe(true);
+    expect(statuses.at(-1)).toBe(429);
   });
 
   it('accepts the pinger header secret', async () => {
