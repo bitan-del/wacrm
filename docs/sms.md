@@ -117,8 +117,9 @@ channel and the setup guide for operators and their customers.
   `X-Twilio-Signature` validates against **that** account's auth token
   (HMAC-SHA1 over the full URL + sorted form params). Inbound without
   `cfg` falls back to matching `AccountSid` + `To` / messaging service.
-- `GET /api/sms/cron` requires `x-cron-secret` = `SMS_CRON_SECRET`
-  (falls back to `AUTOMATION_CRON_SECRET`).
+- `GET /api/sms/cron` needs no secret (it only delivers what is already
+  due and consented, re-checking both); if `SMS_CRON_SECRET` /
+  `AUTOMATION_CRON_SECRET` / `CRON_SECRET` is set, it is enforced.
 
 ## Setup
 
@@ -136,17 +137,16 @@ channel and the setup guide for operators and their customers.
    | `ENCRYPTION_KEY` | already set | Encrypts each workspace's Twilio Auth Token (same key as WhatsApp tokens). |
    | `SUPABASE_SERVICE_ROLE_KEY` | already set | Webhooks and the delivery cron run without a user session. |
    | `NEXT_PUBLIC_SITE_URL` | **yes for SMS** | Public origin (e.g. `https://waba.outreach-pro.in`). Used to build the status-callback URL from the cron, which has no browser request to derive it from, and as the public URL Twilio signed. |
-   | `CRON_SECRET` | **yes for SMS broadcasts** | Vercel Cron sends it as `Authorization: Bearer …` to `/api/sms/cron` (scheduled in `vercel.json`, daily at 18:00 UTC on Hobby). |
-   | `SMS_CRON_SECRET` | optional | Secret for an external pinger (`x-cron-secret` header) that calls `/api/sms/cron` more often. Falls back to `AUTOMATION_CRON_SECRET`. |
+   | `CRON_SECRET` / `SMS_CRON_SECRET` | no | Optional lock for `/api/sms/cron`. Not needed: without one the job still runs (it can only send messages that are already due and consented), throttled to 6 calls/min. |
 
-3. **Delivery cron.** `vercel.json` schedules `/api/sms/cron` once a day
-   (18:00 UTC — after 8am in every US zone, the most Vercel Hobby
-   allows); set `CRON_SECRET` so Vercel can authenticate. For faster
-   release of quiet-hour holds and rate-limit retries, also ping it every
-   5 minutes from an external scheduler:
+3. **Delivery cron — nothing to configure.** `vercel.json` schedules
+   `/api/sms/cron` daily at 13:00 UTC (≈8am Eastern) and 18:00 UTC
+   (after 8am in every US zone incl. Hawaii) — Vercel Hobby allows one
+   run per day per job. For faster release of quiet-hour holds, any
+   external scheduler can also call it every few minutes:
 
    ```bash
-   curl -fsS -H "x-cron-secret: $SMS_CRON_SECRET" https://waba.outreach-pro.in/api/sms/cron
+   curl -fsS https://waba.outreach-pro.in/api/sms/cron
    ```
 
    (cron-job.org, GitHub Actions schedule, Upstash QStash…, or the same
@@ -233,6 +233,6 @@ channel and the setup guide for operators and their customers.
 - Area codes are a proxy: a mobile number keeps its area code when its
   owner moves. Set the contact's timezone when you know it.
 - Flows don't run on SMS (they're built from WhatsApp buttons/lists).
-- Vercel Hobby runs the cron once a day (18:00 UTC — after 8am in every
-  US zone incl. Hawaii); a campaign held for quiet hours goes out then
-  unless an external pinger calls `/api/sms/cron` more often.
+- Vercel Hobby runs each cron once a day, so quiet-hour holds go out at
+  13:00 or 18:00 UTC unless an external pinger calls `/api/sms/cron`
+  more often.
